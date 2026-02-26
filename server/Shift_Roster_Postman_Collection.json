@@ -1,0 +1,523 @@
+{
+  "info": {
+    "_postman_id": "shift-roster-api-collection",
+    "name": "HRM Shift & Roster API",
+    "description": "Postman collection for Shift and Roster modules",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "companyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "branchId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employeeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employeeId2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "shiftId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "rosterId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Shift",
+      "item": [
+        {
+          "name": "Create Shift",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData && jsonData.data && jsonData.data._id) {",
+                  "    pm.collectionVariables.set('shiftId', jsonData.data._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"{{companyId}}\",\n  \"branch\": \"{{branchId}}\",\n  \"name\": \"General Shift\",\n  \"code\": \"GEN\",\n  \"description\": \"Regular day shift\",\n  \"startTime\": \"09:30\",\n  \"endTime\": \"18:30\",\n  \"gracePeriodMinutes\": 15,\n  \"breakDurationMinutes\": 60,\n  \"weeklyOff\": [\"Sunday\"],\n  \"isNightShift\": false,\n  \"isDefault\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shifts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shifts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Shifts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/shifts?page=1&limit=10&search=General",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shifts"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": "General"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Shift Dropdown",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/shifts/dropdown?company={{companyId}}&branch={{branchId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shifts",
+                "dropdown"
+              ],
+              "query": [
+                {
+                  "key": "company",
+                  "value": "{{companyId}}"
+                },
+                {
+                  "key": "branch",
+                  "value": "{{branchId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Shift By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/shifts/{{shiftId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shifts",
+                "{{shiftId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Shift",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"General Shift Updated\",\n  \"code\": \"GEN1\",\n  \"startTime\": \"10:00\",\n  \"endTime\": \"19:00\",\n  \"gracePeriodMinutes\": 10,\n  \"isDefault\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shifts/{{shiftId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shifts",
+                "{{shiftId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Toggle Shift Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shifts/{{shiftId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shifts",
+                "{{shiftId}}",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Shift",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/shifts/{{shiftId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shifts",
+                "{{shiftId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roster",
+      "item": [
+        {
+          "name": "Create Roster",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData && jsonData.data && jsonData.data._id) {",
+                  "    pm.collectionVariables.set('rosterId', jsonData.data._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee\": \"{{employeeId}}\",\n  \"shift\": \"{{shiftId}}\",\n  \"rosterDate\": \"2026-02-20\",\n  \"status\": \"Scheduled\",\n  \"notes\": \"Assigned in morning shift\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rosters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rosters"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bulk Assign Roster",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"{{companyId}}\",\n  \"employees\": [\n    \"{{employeeId}}\",\n    \"{{employeeId2}}\"\n  ],\n  \"shift\": \"{{shiftId}}\",\n  \"fromDate\": \"2026-02-21\",\n  \"toDate\": \"2026-02-28\",\n  \"status\": \"Scheduled\",\n  \"notes\": \"Week schedule\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rosters/bulk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rosters",
+                "bulk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Rosters",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rosters?page=1&limit=31&status=Scheduled",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rosters"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "31"
+                },
+                {
+                  "key": "status",
+                  "value": "Scheduled"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Employee Roster",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rosters/employee/{{employeeId}}?month=2&year=2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rosters",
+                "employee",
+                "{{employeeId}}"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "2"
+                },
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Roster By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rosters/{{rosterId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rosters",
+                "{{rosterId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Roster",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Holiday\",\n  \"notes\": \"Marked as holiday\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rosters/{{rosterId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rosters",
+                "{{rosterId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Publish Roster",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isPublished\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rosters/{{rosterId}}/publish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rosters",
+                "{{rosterId}}",
+                "publish"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Roster",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rosters/{{rosterId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rosters",
+                "{{rosterId}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

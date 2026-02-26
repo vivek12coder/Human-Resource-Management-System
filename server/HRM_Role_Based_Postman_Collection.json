@@ -1,0 +1,262 @@
+{
+  "info": {
+    "name": "HRM Role Based Collection (Super Admin + Company Admin + Branch Admin)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Role flow collection for SUPER_ADMIN -> ADMIN -> JUNIOR_ADMIN"
+  },
+  "item": [
+    {
+      "name": "1. Login",
+      "item": [
+        {
+          "name": "Super Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{superAdminEmail}}\",\n  \"password\": \"{{superAdminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Company Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{companyAdminEmail}}\",\n  \"password\": \"{{companyAdminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Branch Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{branchAdminEmail}}\",\n  \"password\": \"{{branchAdminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Super Admin",
+      "item": [
+        {
+          "name": "Super Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{superAdminToken}}" }
+            ],
+            "url": "{{baseUrl}}/dashboard/super-admin"
+          }
+        },
+        {
+          "name": "Create Company",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{superAdminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{companyName}}\",\n  \"code\": \"{{companyCode}}\",\n  \"email\": \"{{companyEmail}}\",\n  \"phone\": \"9999999999\",\n  \"address\": \"Main Office\"\n}"
+            },
+            "url": "{{baseUrl}}/companies"
+          }
+        },
+        {
+          "name": "Get Companies",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{superAdminToken}}" }
+            ],
+            "url": "{{baseUrl}}/companies"
+          }
+        },
+        {
+          "name": "Create Company Admin (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{superAdminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Company Admin\",\n  \"email\": \"{{companyAdminEmail}}\",\n  \"password\": \"{{companyAdminPassword}}\",\n  \"role\": \"ADMIN\",\n  \"company\": \"{{companyId}}\",\n  \"phone\": \"9876543210\"\n}"
+            },
+            "url": "{{baseUrl}}/users"
+          }
+        },
+        {
+          "name": "Get Company Admins",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{superAdminToken}}" }
+            ],
+            "url": "{{baseUrl}}/users?role=ADMIN"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Company Admin",
+      "item": [
+        {
+          "name": "Company Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{companyAdminToken}}" }
+            ],
+            "url": "{{baseUrl}}/dashboard/admin"
+          }
+        },
+        {
+          "name": "Create Branch",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{companyAdminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{branchName}}\",\n  \"code\": \"{{branchCode}}\",\n  \"email\": \"{{branchEmail}}\",\n  \"phone\": \"9000000000\",\n  \"address\": \"Branch Address\"\n}"
+            },
+            "url": "{{baseUrl}}/branches"
+          }
+        },
+        {
+          "name": "Get Branches",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{companyAdminToken}}" }
+            ],
+            "url": "{{baseUrl}}/branches"
+          }
+        },
+        {
+          "name": "Create Branch Admin (JUNIOR_ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{companyAdminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Branch Admin\",\n  \"email\": \"{{branchAdminEmail}}\",\n  \"password\": \"{{branchAdminPassword}}\",\n  \"role\": \"JUNIOR_ADMIN\",\n  \"branch\": \"{{branchId}}\",\n  \"permissions\": [\"EMPLOYEE_CREATE\", \"EMPLOYEE_VIEW\", \"EMPLOYEE_UPDATE\", \"ATTENDANCE_VIEW\", \"ATTENDANCE_MARK\"]\n}"
+            },
+            "url": "{{baseUrl}}/users"
+          }
+        },
+        {
+          "name": "Get Branch Admins",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{companyAdminToken}}" }
+            ],
+            "url": "{{baseUrl}}/users?role=JUNIOR_ADMIN"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Branch Admin",
+      "item": [
+        {
+          "name": "Branch Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{branchAdminToken}}" }
+            ],
+            "url": "{{baseUrl}}/dashboard/branch-admin"
+          }
+        },
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{branchAdminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Rahul\",\n  \"lastName\": \"Kumar\",\n  \"email\": \"{{employeeEmail}}\",\n  \"phone\": \"9090909090\",\n  \"gender\": \"Male\",\n  \"joiningDate\": \"2026-02-23\",\n  \"basicSalary\": 25000,\n  \"employmentType\": \"Full-Time\"\n}"
+            },
+            "url": "{{baseUrl}}/employees"
+          }
+        },
+        {
+          "name": "Get Employees (My Branch)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{branchAdminToken}}" }
+            ],
+            "url": "{{baseUrl}}/employees"
+          }
+        },
+        {
+          "name": "Get Attendance (My Branch)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{branchAdminToken}}" }
+            ],
+            "url": "{{baseUrl}}/attendance?startDate=2026-02-01&endDate=2026-02-28"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api" },
+    { "key": "superAdminEmail", "value": "superadmin@gmail.com" },
+    { "key": "superAdminPassword", "value": "admin1" },
+    { "key": "superAdminToken", "value": "" },
+
+    { "key": "companyId", "value": "" },
+    { "key": "companyName", "value": "Demo Hotel Pvt Ltd" },
+    { "key": "companyCode", "value": "DHP001" },
+    { "key": "companyEmail", "value": "demohotel@example.com" },
+
+    { "key": "companyAdminEmail", "value": "companyadmin@example.com" },
+    { "key": "companyAdminPassword", "value": "Admin@123" },
+    { "key": "companyAdminToken", "value": "" },
+
+    { "key": "branchId", "value": "" },
+    { "key": "branchName", "value": "Jaipur Branch" },
+    { "key": "branchCode", "value": "JPR01" },
+    { "key": "branchEmail", "value": "jaipur.branch@example.com" },
+
+    { "key": "branchAdminEmail", "value": "branchadmin@example.com" },
+    { "key": "branchAdminPassword", "value": "Admin@123" },
+    { "key": "branchAdminToken", "value": "" },
+
+    { "key": "employeeEmail", "value": "employee1@example.com" }
+  ]
+}
