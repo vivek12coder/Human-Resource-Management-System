@@ -23,7 +23,7 @@ router.get("/my", PayrollController.getMyPayslips);
 // Generate single payroll
 router.post(
   "/generate",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   checkPermission("PAYROLL_GENERATE"),
   validateRequest(
     z.object({
@@ -42,7 +42,7 @@ router.post(
 // Bulk generate payroll
 router.post(
   "/bulk-generate",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   checkPermission("PAYROLL_GENERATE"),
   validateRequest(
     z.object({
@@ -59,7 +59,7 @@ router.post(
 // Get all payrolls
 router.get(
   "/",
-  authorizeRoles("SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   checkPermission("PAYROLL_VIEW"),
   PayrollController.getAllPayrolls
 );
@@ -67,7 +67,7 @@ router.get(
 // Get payroll summary
 router.get(
   "/summary",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   PayrollController.getPayrollSummary
 );
 
@@ -106,7 +106,7 @@ router.get(
 // Update payroll
 router.put(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   checkPermission("PAYROLL_UPDATE"),
   validateRequest(
     z.object({
@@ -123,7 +123,7 @@ router.put(
 // Approve payroll
 router.patch(
   "/:id/approve",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -139,7 +139,7 @@ router.patch(
 // Mark as paid
 router.patch(
   "/:id/paid",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({

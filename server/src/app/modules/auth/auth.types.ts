@@ -16,6 +16,20 @@ export interface IUserRegister {
 export interface IUserLogin {
   email: string;
   password: string;
+  device?: {
+    deviceId: string;
+    deviceName: string;
+    signature: string;
+    details?: {
+      os: string;
+      browser: string;
+      resolution: string;
+      gpu: string;
+      timezone: string;
+      memory: string;
+      cores: string | number;
+    };
+  };
 }
 
 export interface IAuthTokens {

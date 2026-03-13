@@ -38,6 +38,7 @@ export class AuthController {
             email: user.email,
             role: user.role,
             permissions: (user as any).permissions,
+            devices: (user as any).devices,
           },
           tokens: { accessToken }, // refreshToken only in cookie, NOT in body
         },
@@ -57,7 +58,7 @@ export class AuthController {
   static async login(req: Request, res: Response) {
     try {
       const payload: IUserLogin = req.body;
-      const { user, accessToken, refreshToken } = await AuthService.loginUser(payload);
+      const { user, accessToken, refreshToken } = await AuthService.loginUser(payload, req.ip);
 
       // Set refresh token as httpOnly cookie
       res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, cookieOptions);
@@ -73,6 +74,7 @@ export class AuthController {
             role: user.role,
             company: user.company,
             permissions: user.permissions,
+            devices: user.devices,
           },
           tokens: { accessToken }, // refreshToken only in cookie, NOT in body
         },

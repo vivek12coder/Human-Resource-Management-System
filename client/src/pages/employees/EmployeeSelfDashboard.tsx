@@ -1,35 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Calendar, LogIn, LogOut, Save, UserCircle2 } from 'lucide-react';
+import { Calendar, LogIn, LogOut, UserCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Badge, Button, Card, Input, Select } from '../../components/ui';
+import { Badge, Button, Card } from '../../components/ui';
 import type { Attendance, Employee } from '../../types';
-import api from '../../lib/api';
-
-const profileSchema = z.object({
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
-  alternatePhone: z.string().optional(),
-  dateOfBirth: z.string().optional(),
-  gender: z.enum(['Male', 'Female', 'Other']),
-  maritalStatus: z.union([z.enum(['Single', 'Married', 'Divorced', 'Widowed']), z.literal('')]).optional(),
-  bloodGroup: z.string().optional(),
-  currentAddressStreet: z.string().optional(),
-  currentAddressCity: z.string().optional(),
-  currentAddressState: z.string().optional(),
-  currentAddressPincode: z.string().optional(),
-  emergencyContactName: z.string().optional(),
-  emergencyContactRelationship: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
-});
-
-type ProfileForm = z.infer<typeof profileSchema>;
-
-type AttendanceSummary = {
+import api from '../../lib/api';type AttendanceSummary = {
   totalDays: number;
   present: number;
   absent: number;
@@ -42,20 +18,11 @@ type AttendanceSummary = {
   averageHours: number;
 };
 
-const sanitize = <T extends Record<string, unknown>>(obj: T): T => {
-  const entries = Object.entries(obj).map(([key, value]) => {
-    if (typeof value === 'string' && value.trim() === '') return [key, undefined];
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      return [key, sanitize(value as Record<string, unknown>)];
-    }
-    return [key, value];
-  });
-  return Object.fromEntries(entries) as T;
-};
+
 
 const EmployeeSelfDashboard = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [isCheckInLoading, setIsCheckInLoading] = useState(false);
   const [isCheckOutLoading, setIsCheckOutLoading] = useState(false);
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -63,17 +30,7 @@ const EmployeeSelfDashboard = () => {
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [attendanceList, setAttendanceList] = useState<Attendance[]>([]);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<ProfileForm>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      gender: 'Male',
-    },
-  });
+
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'primary'> = {
@@ -104,26 +61,8 @@ const EmployeeSelfDashboard = () => {
       const profile: Employee = profileRes.data.data;
       setEmployee(profile);
       setTodayAttendance(todayRes.data.data);
-      setAttendanceSummary(attendanceRes.data.data.summary);
+      setAttendanceSummary(attendanceRes.data.data.summary || null);
       setAttendanceList(attendanceRes.data.data.attendances || []);
-
-      reset({
-        firstName: profile.firstName || '',
-        lastName: profile.lastName || '',
-        phone: profile.phone || '',
-        alternatePhone: profile.alternatePhone || '',
-        dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.split('T')[0] : '',
-        gender: profile.gender || 'Male',
-        maritalStatus: profile.maritalStatus || undefined,
-        bloodGroup: profile.bloodGroup || '',
-        currentAddressStreet: profile.currentAddress?.street || '',
-        currentAddressCity: profile.currentAddress?.city || '',
-        currentAddressState: profile.currentAddress?.state || '',
-        currentAddressPincode: profile.currentAddress?.pincode || '',
-        emergencyContactName: profile.emergencyContact?.name || '',
-        emergencyContactRelationship: profile.emergencyContact?.relationship || '',
-        emergencyContactPhone: profile.emergencyContact?.phone || '',
-      });
     } catch {
       toast.error('Failed to load employee dashboard');
     } finally {
@@ -135,68 +74,70 @@ const EmployeeSelfDashboard = () => {
     loadData();
   }, []);
 
-  const onSubmit = async (data: ProfileForm) => {
-    setIsSaving(true);
-    try {
-      const payload = sanitize({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        alternatePhone: data.alternatePhone,
-        dateOfBirth: data.dateOfBirth,
-        gender: data.gender,
-        maritalStatus: data.maritalStatus || undefined,
-        bloodGroup: data.bloodGroup,
-        currentAddress: {
-          street: data.currentAddressStreet,
-          city: data.currentAddressCity,
-          state: data.currentAddressState,
-          pincode: data.currentAddressPincode,
-        },
-        emergencyContact: {
-          name: data.emergencyContactName,
-          relationship: data.emergencyContactRelationship,
-          phone: data.emergencyContactPhone,
-        },
-      });
-
-      await api.patch('/employees/me', payload);
-      toast.success('Profile updated successfully');
-      await loadData();
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to update profile');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleCheckIn = async () => {
-    setIsCheckInLoading(true);
-    try {
-      const response = await api.post('/attendance/check-in', { checkInMethod: 'Web' });
-      setTodayAttendance(response.data.data);
-      toast.success('Checked in successfully');
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to check in');
-    } finally {
-      setIsCheckInLoading(false);
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
     }
+
+    setIsCheckInLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await api.post('/attendance/check-in', {
+            checkInMethod: 'Web',
+            checkInLocation: { latitude, longitude },
+          });
+          setTodayAttendance(response.data.data);
+          toast.success('Checked in successfully');
+          loadData(); // Re-fetch to update summary
+        } catch (error: unknown) {
+          const err = error as { response?: { data?: { message?: string } } };
+          toast.error(err.response?.data?.message || 'Failed to check in');
+        } finally {
+          setIsCheckInLoading(false);
+        }
+      },
+      (_error) => {
+        setIsCheckInLoading(false);
+        toast.error('Please enable location services to check in');
+      },
+      { enableHighAccuracy: true }
+    );
   };
 
   const handleCheckOut = async () => {
-    setIsCheckOutLoading(true);
-    try {
-      const response = await api.post('/attendance/check-out', { checkOutMethod: 'Web' });
-      setTodayAttendance(response.data.data);
-      toast.success('Checked out successfully');
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to check out');
-    } finally {
-      setIsCheckOutLoading(false);
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
     }
+
+    setIsCheckOutLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await api.post('/attendance/check-out', {
+            checkOutMethod: 'Web',
+            checkOutLocation: { latitude, longitude },
+          });
+          setTodayAttendance(response.data.data);
+          toast.success('Checked out successfully');
+          loadData(); // Re-fetch to update summary
+        } catch (error: unknown) {
+          const err = error as { response?: { data?: { message?: string } } };
+          toast.error(err.response?.data?.message || 'Failed to check out');
+        } finally {
+          setIsCheckOutLoading(false);
+        }
+      },
+      (_error) => {
+        setIsCheckOutLoading(false);
+        toast.error('Please enable location services to check out');
+      },
+      { enableHighAccuracy: true }
+    );
   };
 
   const latestAttendance = useMemo(
@@ -264,54 +205,100 @@ const EmployeeSelfDashboard = () => {
       </div>
 
       <Card>
-        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-          <UserCircle2 className="w-5 h-5" />
-          My Profile
-        </h2>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="First Name" error={errors.firstName?.message} {...register('firstName')} />
-            <Input label="Last Name" error={errors.lastName?.message} {...register('lastName')} />
-            <Input label="Phone" error={errors.phone?.message} {...register('phone')} />
-            <Input label="Alternate Phone" error={errors.alternatePhone?.message} {...register('alternatePhone')} />
-            <Input label="Date of Birth" type="date" error={errors.dateOfBirth?.message} {...register('dateOfBirth')} />
-            <Select
-              label="Gender"
-              options={[
-                { value: 'Male', label: 'Male' },
-                { value: 'Female', label: 'Female' },
-                { value: 'Other', label: 'Other' },
-              ]}
-              error={errors.gender?.message}
-              {...register('gender')}
-            />
-            <Select
-              label="Marital Status"
-              placeholder="Select status"
-              options={[
-                { value: 'Single', label: 'Single' },
-                { value: 'Married', label: 'Married' },
-                { value: 'Divorced', label: 'Divorced' },
-                { value: 'Widowed', label: 'Widowed' },
-              ]}
-              error={errors.maritalStatus?.message}
-              {...register('maritalStatus')}
-            />
-            <Input label="Blood Group" error={errors.bloodGroup?.message} {...register('bloodGroup')} />
-            <Input label="Address Street" error={errors.currentAddressStreet?.message} {...register('currentAddressStreet')} />
-            <Input label="Address City" error={errors.currentAddressCity?.message} {...register('currentAddressCity')} />
-            <Input label="Address State" error={errors.currentAddressState?.message} {...register('currentAddressState')} />
-            <Input label="Address Pincode" error={errors.currentAddressPincode?.message} {...register('currentAddressPincode')} />
-            <Input label="Emergency Contact Name" {...register('emergencyContactName')} />
-            <Input label="Emergency Relationship" {...register('emergencyContactRelationship')} />
-            <Input label="Emergency Contact Phone" {...register('emergencyContactPhone')} />
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" isLoading={isSaving} leftIcon={<Save className="w-4 h-4" />}>
-              Save Profile
-            </Button>
-          </div>
-        </form>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <UserCircle2 className="w-5 h-5" />
+            My Profile
+          </h2>
+          <Button variant="outline" size="sm" onClick={() => navigate('/settings')}>
+            Edit Profile
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-6">
+          {employee?.firstName && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">First Name</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{employee.firstName}</p>
+            </div>
+          )}
+          {employee?.lastName && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Last Name</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{employee.lastName}</p>
+            </div>
+          )}
+          {employee?.email && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{employee.email}</p>
+            </div>
+          )}
+          {employee?.phone && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Phone</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{employee.phone}</p>
+            </div>
+          )}
+          {employee?.dateOfBirth && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{format(new Date(employee.dateOfBirth), 'dd MMM yyyy')}</p>
+            </div>
+          )}
+          {employee?.gender && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Gender</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{employee.gender}</p>
+            </div>
+          )}
+          {employee?.department && typeof employee.department === 'object' && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Department</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{'name' in employee.department ? employee.department.name : '-'}</p>
+            </div>
+          )}
+          {employee?.designation && typeof employee.designation === 'object' && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Designation</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{'title' in employee.designation ? employee.designation.title : '-'}</p>
+            </div>
+          )}
+          {employee?.maritalStatus && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Marital Status</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{employee.maritalStatus}</p>
+            </div>
+          )}
+          {employee?.bloodGroup && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Blood Group</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">{employee.bloodGroup}</p>
+            </div>
+          )}
+          {(employee?.currentAddress?.street || employee?.currentAddress?.city) && (
+            <div className="md:col-span-2">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Address</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">
+                {[
+                  employee.currentAddress?.street,
+                  employee.currentAddress?.city,
+                  employee.currentAddress?.state,
+                  employee.currentAddress?.pincode,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
+            </div>
+          )}
+          {employee?.emergencyContact?.name && (
+            <div className="md:col-span-2">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Emergency Contact</p>
+              <p className="text-slate-900 dark:text-slate-100 font-medium">
+                {employee.emergencyContact.name} ({employee.emergencyContact.relationship}) - {employee.emergencyContact.phone}
+              </p>
+            </div>
+          )}
+        </div>
       </Card>
 
       <Card>

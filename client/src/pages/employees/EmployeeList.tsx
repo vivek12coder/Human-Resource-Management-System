@@ -238,6 +238,15 @@ const EmployeeList = () => {
           <Button variant="outline" className="w-full sm:w-auto" leftIcon={<Download className="w-4 h-4" />}>
             Export
           </Button>
+          {hasRole('BRANCH_ADMIN', 'JUNIOR_ADMIN') && (
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => navigate('/users?create=1')}
+              leftIcon={<UserPlus className="w-4 h-4" />}
+            >
+              Create Staff
+            </Button>
+          )}
           {hasPermission('EMPLOYEE_CREATE') && (
             <Button
               className="w-full sm:w-auto"

@@ -10,7 +10,8 @@ import {
   Briefcase,
   Award,
   Settings,
-  UserCircle2,
+  Clock,
+  CalendarDays,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import {
@@ -36,25 +37,34 @@ const AppSidebar = () => {
     {
       title: 'Workforce',
       items: [
-        ...(hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN')
+        ...(hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN', 'BRANCH_ADMIN', 'HR')
           ? [{ icon: Users, label: 'Employees', path: '/employees' }]
           : []),
-        ...(hasRole('EMPLOYEE')
-          ? [{ icon: UserCircle2, label: 'My Profile', path: '/my-profile' }]
-          : []),
+
         { icon: UserCheck, label: 'Attendance', path: '/attendance' },
         { icon: CalendarOff, label: 'Leave', path: '/leave' },
         { icon: Wallet, label: 'Payroll', path: '/payroll' },
       ],
     },
     {
+      title: 'Scheduling',
+      items: [
+        ...(hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN', 'BRANCH_ADMIN', 'HR')
+          ? [
+            { icon: Clock, label: 'Shifts', path: '/shifts' },
+            { icon: CalendarDays, label: 'Company Roster', path: '/roster' },
+          ]
+          : []),
+      ],
+    },
+    {
       title: 'Organization',
       items: [
         ...(hasRole('SUPER_ADMIN') ? [{ icon: Building2, label: 'Companies', path: '/companies' }] : []),
-        ...(hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN')
+        ...(hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN', 'BRANCH_ADMIN', 'HR')
           ? [{ icon: GitBranch, label: 'Branches', path: '/branches' }]
           : []),
-        ...(hasRole('SUPER_ADMIN', 'ADMIN')
+        ...(hasRole('SUPER_ADMIN', 'ADMIN', 'HR', 'BRANCH_ADMIN', 'JUNIOR_ADMIN')
           ? [
             { icon: Briefcase, label: 'Departments', path: '/departments' },
             { icon: Award, label: 'Designations', path: '/designations' },
@@ -65,7 +75,9 @@ const AppSidebar = () => {
     {
       title: 'Administration',
       items: [
-        ...(hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN') ? [{ icon: Users, label: 'Users', path: '/users' }] : []),
+        ...(hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN', 'BRANCH_ADMIN')
+          ? [{ icon: Users, label: 'Users', path: '/users' }]
+          : []),
         { icon: Settings, label: 'Settings', path: '/settings' },
       ],
     },
@@ -111,8 +123,7 @@ const AppSidebar = () => {
         )}
       </SidebarContent>
 
-      <SidebarFooter>
-      </SidebarFooter>
+      <SidebarFooter />
     </Sidebar>
   );
 };

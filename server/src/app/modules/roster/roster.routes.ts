@@ -4,7 +4,6 @@ import { z } from "zod";
 import { RosterController } from "./roster.controller";
 import {
   authorizeRoles,
-  checkPermission,
   verifyToken,
 } from "../../middleware/jwtAuth.middleware";
 import { validateRequest } from "../../middleware/auth.middleware";
@@ -13,10 +12,10 @@ const router = Router();
 
 router.use(verifyToken);
 
+// Create single roster entry
 router.post(
   "/",
-  authorizeRoles("SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN"),
-  checkPermission("ROSTER_CREATE"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       body: z.object({
@@ -38,10 +37,10 @@ router.post(
   RosterController.createRoster
 );
 
+// Bulk assign roster
 router.post(
   "/bulk",
-  authorizeRoles("SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN"),
-  checkPermission("ROSTER_CREATE"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       body: z.object({
@@ -69,11 +68,17 @@ router.post(
   RosterController.bulkAssignRoster
 );
 
-router.get("/", checkPermission("ROSTER_VIEW"), RosterController.getAllRosters);
+// Get all rosters
+router.get(
+  "/",
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "JUNIOR_ADMIN", "BRANCH_ADMIN"),
+  RosterController.getAllRosters
+);
 
+// Get employee roster
 router.get(
   "/employee/:id",
-  checkPermission("ROSTER_VIEW"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "JUNIOR_ADMIN", "BRANCH_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -86,9 +91,10 @@ router.get(
   RosterController.getEmployeeRoster
 );
 
+// Get roster by ID
 router.get(
   "/:id",
-  checkPermission("ROSTER_VIEW"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "JUNIOR_ADMIN", "BRANCH_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -101,10 +107,10 @@ router.get(
   RosterController.getRosterById
 );
 
+// Update roster
 router.put(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN"),
-  checkPermission("ROSTER_UPDATE"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -117,9 +123,10 @@ router.put(
   RosterController.updateRoster
 );
 
+// Publish/unpublish roster
 router.patch(
   "/:id/publish",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -135,10 +142,10 @@ router.patch(
   RosterController.publishRoster
 );
 
+// Delete roster
 router.delete(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
-  checkPermission("ROSTER_DELETE"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({

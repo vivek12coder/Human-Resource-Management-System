@@ -4,7 +4,6 @@ import { z } from "zod";
 import { ShiftController } from "./shift.controller";
 import {
   authorizeRoles,
-  checkPermission,
   verifyToken,
 } from "../../middleware/jwtAuth.middleware";
 import { validateRequest } from "../../middleware/auth.middleware";
@@ -23,10 +22,10 @@ const daysSchema = z.enum([
   "Saturday",
 ]);
 
+// Create shift — open to all admin roles, no extra permission check needed
 router.post(
   "/",
-  authorizeRoles("SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN"),
-  checkPermission("SHIFT_CREATE"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       body: z.object({
@@ -48,13 +47,16 @@ router.post(
   ShiftController.createShift
 );
 
-router.get("/", checkPermission("SHIFT_VIEW"), ShiftController.getAllShifts);
+// Get all shifts — any authenticated admin can view
+router.get("/", authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "JUNIOR_ADMIN", "BRANCH_ADMIN"), ShiftController.getAllShifts);
 
+// Dropdown — open to all authenticated users (for roster assignment etc.)
 router.get("/dropdown", ShiftController.getShiftDropdown);
 
+// Get single shift
 router.get(
   "/:id",
-  checkPermission("SHIFT_VIEW"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "JUNIOR_ADMIN", "BRANCH_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -67,10 +69,10 @@ router.get(
   ShiftController.getShiftById
 );
 
+// Update shift
 router.put(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN"),
-  checkPermission("SHIFT_UPDATE"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -83,9 +85,10 @@ router.put(
   ShiftController.updateShift
 );
 
+// Toggle active status
 router.patch(
   "/:id/status",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -101,10 +104,10 @@ router.patch(
   ShiftController.toggleShiftStatus
 );
 
+// Delete shift
 router.delete(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
-  checkPermission("SHIFT_DELETE"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({

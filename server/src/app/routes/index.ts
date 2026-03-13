@@ -16,6 +16,7 @@ import designationRoutes from "../modules/designation/designation.routes";
 import employeeRoutes from "../modules/employee/employee.routes";
 import shiftRoutes from "../modules/shift/shift.routes";
 import rosterRoutes from "../modules/roster/roster.routes";
+import faceRoutes from "../modules/face/face.routes";
 
 // Attendance & Leave
 import attendanceRoutes from "../modules/attendence/attendance.routes";
@@ -26,6 +27,7 @@ import payrollRoutes from "../modules/payroll/payroll.routes";
 
 // Dashboard
 import dashboardRoutes from "../modules/dashboard/dashboard.routes";
+import branchAdminRoutes from "../modules/branch-admin/branchAdmin.routes";
 
 const router = Router();
 
@@ -65,6 +67,9 @@ router.use("/employees", employeeRoutes);
 router.use("/shifts", shiftRoutes);
 router.use("/rosters", rosterRoutes);
 
+// Face Recognition
+router.use("/face", faceRoutes);
+
 // Attendance Management
 router.use("/attendance", attendanceRoutes);
 
@@ -76,5 +81,8 @@ router.use("/payroll", payrollRoutes);
 
 // Dashboard
 router.use("/dashboard", dashboardRoutes);
+
+// Branch Admin Management
+router.use("/branch-admin", branchAdminRoutes);
 
 export default router;

@@ -1,29 +1,22 @@
 import mongoose, { Document, Schema } from "mongoose";
 
-/* ============================= */
-/*       BRANCH INTERFACE        */
-/* ============================= */
-
 export interface IBranch extends Document {
   name: string;
   code: string;
   company: mongoose.Types.ObjectId;
-  email?: string;
-  phone?: string;
   address?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  pincode?: string;
-  isHeadOffice: boolean;
+  phone?: string;
+  email?: string;
+  isHeadOffice?: boolean;
+  location?: {
+    latitude: number;
+    longitude: number;
+    radius: number; // in meters (default 10)
+  };
   isActive: boolean;
   isDeleted: boolean;
   createdBy: mongoose.Types.ObjectId;
 }
-
-/* ============================= */
-/*            SCHEMA             */
-/* ============================= */
 
 const branchSchema = new Schema<IBranch>(
   {
@@ -45,40 +38,31 @@ const branchSchema = new Schema<IBranch>(
       ref: "Company",
       required: [true, "Company is required"],
     },
-    email: {
-      type: String,
-      lowercase: true,
-      trim: true,
-    },
-    phone: {
-      type: String,
-      trim: true,
-    },
     address: {
       type: String,
       trim: true,
       maxlength: 500,
     },
-    city: {
+    phone: {
       type: String,
       trim: true,
     },
-    state: {
+    email: {
       type: String,
-      trim: true,
-    },
-    country: {
-      type: String,
-      trim: true,
-      default: "India",
-    },
-    pincode: {
-      type: String,
+      lowercase: true,
       trim: true,
     },
     isHeadOffice: {
       type: Boolean,
       default: false,
+    },
+    location: {
+      latitude: Number,
+      longitude: Number,
+      radius: {
+        type: Number,
+        default: 10,
+      },
     },
     isActive: {
       type: Boolean,
@@ -99,16 +83,9 @@ const branchSchema = new Schema<IBranch>(
   }
 );
 
-/* ============================= */
-/*           INDEXES             */
-/* ============================= */
-
-// Unique code per company
 branchSchema.index({ company: 1, code: 1 }, { unique: true });
 branchSchema.index({ company: 1 });
-branchSchema.index({ isActive: 1 });
 
 const Branch = mongoose.model<IBranch>("Branch", branchSchema);
 
 export default Branch;
-

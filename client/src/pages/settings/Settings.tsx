@@ -23,11 +23,36 @@ import { useAuthStore } from '../../store/authStore';
 import api from '../../lib/api';
 import { cn } from '@/lib/utils';
 
+const sanitize = <T extends Record<string, unknown>>(obj: T): T => {
+  const entries = Object.entries(obj).map(([key, value]) => {
+    if (typeof value === 'string' && value.trim() === '') return [key, undefined];
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return [key, sanitize(value as Record<string, unknown>)];
+    }
+    return [key, value];
+  });
+  return Object.fromEntries(entries) as T;
+};
+
 /* ── Schemas ─────────────────────────────────────────────── */
 const profileSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().optional(),
+  name: z.string().min(2, 'Name must be at least 2 characters').optional(),
+  email: z.string().email('Invalid email address').optional(),
+  firstName: z.string().min(2, 'First name must be at least 2 characters').optional(),
+  lastName: z.string().min(2, 'Last name must be at least 2 characters').optional(),
+  phone: z.string().min(10, 'Phone must be at least 10 digits').optional(),
+  alternatePhone: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.enum(['Male', 'Female', 'Other']).optional(),
+  maritalStatus: z.union([z.enum(['Single', 'Married', 'Divorced', 'Widowed']), z.literal('')]).optional(),
+  bloodGroup: z.string().optional(),
+  currentAddressStreet: z.string().optional(),
+  currentAddressCity: z.string().optional(),
+  currentAddressState: z.string().optional(),
+  currentAddressPincode: z.string().optional(),
+  emergencyContactName: z.string().optional(),
+  emergencyContactRelationship: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
 });
 
 const passwordSchema = z
@@ -72,7 +97,7 @@ function applyTheme(theme: string) {
 
 /* ═══════════════════════════════════════════════════════════ */
 const Settings = () => {
-  const { user } = useAuthStore();
+  const { user, hasRole } = useAuthStore();
   const [activeTab, setActiveTab] = useState('profile');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -109,10 +134,38 @@ const Settings = () => {
     register: regProfile,
     handleSubmit: submitProfile,
     formState: { errors: profileErrors },
+    reset: resetProfile
   } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: { name: user?.name || '', email: user?.email || '', phone: '' },
   });
+
+  const isEmployee = hasRole('EMPLOYEE');
+
+  useEffect(() => {
+    if (isEmployee) {
+      api.get('/employees/me').then((res) => {
+        const profile = res.data.data;
+        resetProfile({
+          firstName: profile.firstName || '',
+          lastName: profile.lastName || '',
+          phone: profile.phone || '',
+          alternatePhone: profile.alternatePhone || '',
+          dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.split('T')[0] : '',
+          gender: profile.gender || 'Male',
+          maritalStatus: profile.maritalStatus || undefined,
+          bloodGroup: profile.bloodGroup || '',
+          currentAddressStreet: profile.currentAddress?.street || '',
+          currentAddressCity: profile.currentAddress?.city || '',
+          currentAddressState: profile.currentAddress?.state || '',
+          currentAddressPincode: profile.currentAddress?.pincode || '',
+          emergencyContactName: profile.emergencyContact?.name || '',
+          emergencyContactRelationship: profile.emergencyContact?.relationship || '',
+          emergencyContactPhone: profile.emergencyContact?.phone || '',
+        });
+      }).catch((err) => console.error('Failed to load employee profile', err));
+    }
+  }, [isEmployee, resetProfile]);
 
   /* ── Password form ────────────── */
   const {
@@ -127,8 +180,32 @@ const Settings = () => {
   const onProfileSubmit = async (data: ProfileForm) => {
     setIsLoading(true);
     try {
-      // PUT /auth/me or /users/me — update currently-logged-in user's profile
-      await api.put('/auth/me', { name: data.name, phone: data.phone });
+      if (isEmployee) {
+        const payload = sanitize({
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+          alternatePhone: data.alternatePhone,
+          dateOfBirth: data.dateOfBirth,
+          gender: data.gender,
+          maritalStatus: data.maritalStatus || undefined,
+          bloodGroup: data.bloodGroup,
+          currentAddress: {
+            street: data.currentAddressStreet,
+            city: data.currentAddressCity,
+            state: data.currentAddressState,
+            pincode: data.currentAddressPincode,
+          },
+          emergencyContact: {
+            name: data.emergencyContactName,
+            relationship: data.emergencyContactRelationship,
+            phone: data.emergencyContactPhone,
+          },
+        });
+        await api.patch('/employees/me', payload);
+      } else {
+        await api.put('/auth/me', { name: data.name, phone: data.phone });
+      }
       toast.success('Profile updated successfully ✓');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -285,9 +362,51 @@ const Settings = () => {
                 <Separator />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input label="Full Name" placeholder="Enter your name" error={profileErrors.name?.message} {...regProfile('name')} />
-                  <Input label="Email Address" type="email" placeholder="you@company.com" error={profileErrors.email?.message} {...regProfile('email')} />
-                  <Input label="Phone Number" type="tel" placeholder="+91 XXXXX XXXXX" {...regProfile('phone')} />
+                  {isEmployee ? (
+                    <>
+                      <Input label="First Name" error={profileErrors.firstName?.message} {...regProfile('firstName')} />
+                      <Input label="Last Name" error={profileErrors.lastName?.message} {...regProfile('lastName')} />
+                      <Input label="Phone" error={profileErrors.phone?.message} {...regProfile('phone')} />
+                      <Input label="Alternate Phone" error={profileErrors.alternatePhone?.message} {...regProfile('alternatePhone')} />
+                      <Input label="Date of Birth" type="date" error={profileErrors.dateOfBirth?.message} {...regProfile('dateOfBirth')} />
+                      <Select
+                        label="Gender"
+                        options={[
+                          { value: 'Male', label: 'Male' },
+                          { value: 'Female', label: 'Female' },
+                          { value: 'Other', label: 'Other' },
+                        ]}
+                        error={profileErrors.gender?.message}
+                        {...regProfile('gender')}
+                      />
+                      <Select
+                        label="Marital Status"
+                        placeholder="Select status"
+                        options={[
+                          { value: 'Single', label: 'Single' },
+                          { value: 'Married', label: 'Married' },
+                          { value: 'Divorced', label: 'Divorced' },
+                          { value: 'Widowed', label: 'Widowed' },
+                        ]}
+                        error={profileErrors.maritalStatus?.message}
+                        {...regProfile('maritalStatus')}
+                      />
+                      <Input label="Blood Group" error={profileErrors.bloodGroup?.message} {...regProfile('bloodGroup')} />
+                      <Input label="Address Street" error={profileErrors.currentAddressStreet?.message} {...regProfile('currentAddressStreet')} />
+                      <Input label="Address City" error={profileErrors.currentAddressCity?.message} {...regProfile('currentAddressCity')} />
+                      <Input label="Address State" error={profileErrors.currentAddressState?.message} {...regProfile('currentAddressState')} />
+                      <Input label="Address Pincode" error={profileErrors.currentAddressPincode?.message} {...regProfile('currentAddressPincode')} />
+                      <Input label="Emergency Contact Name" {...regProfile('emergencyContactName')} />
+                      <Input label="Emergency Relationship" {...regProfile('emergencyContactRelationship')} />
+                      <Input label="Emergency Contact Phone" {...regProfile('emergencyContactPhone')} />
+                    </>
+                  ) : (
+                    <>
+                      <Input label="Full Name" placeholder="Enter your name" error={profileErrors.name?.message} {...regProfile('name')} />
+                      <Input label="Email Address" type="email" placeholder="you@company.com" disabled value={user?.email || ''} />
+                      <Input label="Phone Number" type="tel" placeholder="+91 XXXXX XXXXX" {...regProfile('phone')} />
+                    </>
+                  )}
                 </div>
 
                 <div className="flex justify-end pt-2">
@@ -381,6 +500,53 @@ const Settings = () => {
                   </Button>
                 </div>
               </form>
+
+              <Separator className="my-8" />
+
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-md shadow-emerald-500/20">
+                  <Monitor className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold">Recognized Devices</h2>
+                  <p className="text-xs text-muted-foreground">Devices that have logged into your account recently</p>
+                </div>
+              </div>
+
+              {user?.devices && user.devices.length > 0 ? (
+                <div className="space-y-4">
+                  {user.devices.map((device, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-muted/20 hover:bg-muted/40 transition-colors">
+                      <div>
+                        <p className="font-medium text-sm text-foreground flex items-center gap-2">
+                          <Monitor className="w-4 h-4 text-muted-foreground" />
+                          {device.deviceName || 'Unknown Device'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                          {device.ipAddress ? (
+                            <>
+                              <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px]">{device.ipAddress}</span>
+                              <span>•</span>
+                            </>
+                          ) : null}
+                          <span>Last login: {new Date(device.lastLogin).toLocaleString()}</span>
+                        </p>
+                      </div>
+                      <div className="mt-3 sm:mt-0">
+                         <span className="inline-flex items-center px-2 py-1 space-x-1.5 text-xs font-medium rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                           <CheckCircle2 className="w-3.5 h-3.5" />
+                           <span>Active</span>
+                         </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 border border-dashed border-border rounded-xl bg-muted/10">
+                  <Monitor className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">No recognized devices tracked yet.</p>
+                </div>
+              )}
             </Card>
           )}
 

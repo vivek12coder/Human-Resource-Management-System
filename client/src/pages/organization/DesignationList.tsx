@@ -11,22 +11,27 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button, Card, Input, Badge, Table, Modal, Select } from '../../components/ui';
-import type { Designation } from '../../types';
+import type { Designation, Company } from '../../types';
 import api from '../../lib/api';
 import { useAuthStore } from '../../store/authStore';
 
-const designationSchema = z.object({
+const baseSchema = z.object({
   title: z.string().min(2, 'Title must be at least 2 characters'),
   code: z.string().min(2, 'Code must be at least 2 characters'),
   level: z.string().optional(),
   description: z.string().optional(),
 });
 
-type DesignationForm = z.infer<typeof designationSchema>;
+const superAdminSchema = baseSchema.extend({
+  company: z.string().min(1, 'Company is required'),
+});
+
+type DesignationForm = z.infer<typeof superAdminSchema>;
 
 const DesignationList = () => {
   const { hasRole } = useAuthStore();
   const [designations, setDesignations] = useState<Designation[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [formModal, setFormModal] = useState(false);
@@ -36,6 +41,9 @@ const DesignationList = () => {
     designation: null,
   });
 
+  const isSuperAdmin = hasRole('SUPER_ADMIN');
+  const schema = isSuperAdmin ? superAdminSchema : baseSchema;
+
   const {
     register,
     handleSubmit,
@@ -43,7 +51,7 @@ const DesignationList = () => {
     reset,
     setValue,
   } = useForm<DesignationForm>({
-    resolver: zodResolver(designationSchema),
+    resolver: zodResolver(schema) as any,
   });
 
   const fetchDesignations = async () => {
@@ -62,16 +70,32 @@ const DesignationList = () => {
         setDesignations([]);
       }
     } catch {
-      console.error('Failed to fetch designations:', error);
+      console.error('Failed to fetch designations');
       setDesignations([]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const fetchCompanies = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      const response = await api.get('/companies');
+      const payload = response.data?.data;
+      if (Array.isArray(payload?.companies)) {
+        setCompanies(payload.companies);
+      } else if (Array.isArray(payload)) {
+        setCompanies(payload);
+      }
+    } catch {
+      console.error('Failed to fetch companies');
+    }
+  };
+
   useEffect(() => {
     fetchDesignations();
-  }, []);
+    fetchCompanies();
+  }, [isSuperAdmin]);
 
   const openEditModal = (designation: Designation) => {
     setEditingDesignation(designation);
@@ -79,6 +103,11 @@ const DesignationList = () => {
     setValue('code', designation.code);
     setValue('level', designation.level?.toString() || '');
     setValue('description', designation.description || '');
+    if (designation.company && typeof designation.company === 'object' && '_id' in designation.company) {
+      setValue('company', designation.company._id);
+    } else if (typeof designation.company === 'string') {
+      setValue('company', designation.company);
+    }
     setFormModal(true);
   };
 
@@ -175,7 +204,7 @@ const DesignationList = () => {
       key: 'actions',
       header: 'Actions',
       render: (designation: Designation) =>
-        hasRole('SUPER_ADMIN', 'ADMIN') ? (
+        hasRole('SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'JUNIOR_ADMIN') ? (
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => {
@@ -214,7 +243,7 @@ const DesignationList = () => {
             Manage job designations
           </p>
         </div>
-        {hasRole('SUPER_ADMIN', 'ADMIN') && (
+        {hasRole('SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'JUNIOR_ADMIN') && (
           <Button
             onClick={() => setFormModal(true)}
             leftIcon={<Plus className="w-4 h-4" />}
@@ -284,6 +313,15 @@ const DesignationList = () => {
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {isSuperAdmin && (
+            <Select
+              label="Company"
+              options={companies.map((c) => ({ value: c._id, label: c.name }))}
+              placeholder="Select company"
+              error={errors.company?.message}
+              {...register('company')}
+            />
+          )}
           <Input
             label="Designation Title"
             placeholder="Enter designation title"

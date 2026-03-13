@@ -2,10 +2,30 @@ import Attendance, { IAttendance } from "./attendance.model";
 import Employee from "../employee/employee.model";
 import Shift from "../shift/shift.model";
 import { Types } from "mongoose";
+import Branch from "../branch/branch.model";
 import { HttpStatusCode } from "axios";
 import AppError from "../../errors/AppError";
 
 export class AttendanceService {
+  /**
+   * Calculate distance between two points in meters using Haversine formula
+   */
+  private static calculateDistanceString(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371e3; // Earth radius in meters
+    const rad = Math.PI / 180;
+    const phi1 = lat1 * rad;
+    const phi2 = lat2 * rad;
+    const deltaPhi = (lat2 - lat1) * rad;
+    const deltaLambda = (lon2 - lon1) * rad;
+
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // inside in meters
+  }
+
   /* =============================
           CHECK IN
      ============================= */
@@ -35,6 +55,29 @@ export class AttendanceService {
     const employee = await Employee.findById(employeeId);
     if (!employee) {
       throw new AppError(HttpStatusCode.NotFound, "Request Failed", "Employee not found!");
+    }
+
+    // Geofencing Location Validation
+    if (employee.branch && payload.checkInLocation?.latitude && payload.checkInLocation?.longitude) {
+      const branch = await Branch.findById(employee.branch);
+      if (branch?.location?.latitude && branch?.location?.longitude) {
+        const radius = branch.location.radius || 10;
+        
+        const distance = this.calculateDistanceString(
+          payload.checkInLocation.latitude,
+          payload.checkInLocation.longitude,
+          branch.location.latitude,
+          branch.location.longitude
+        );
+
+        if (distance > radius) {
+          throw new AppError(
+            HttpStatusCode.BadRequest,
+            "Request Failed",
+            `You are outside the branch area (${Math.round(distance)}m away). Please mark attendance from the office.`
+          );
+        }
+      }
     }
 
     // Determine office start time from employee's assigned shift
@@ -123,6 +166,29 @@ export class AttendanceService {
         "Request Failed",
         "Already checked out for today!"
       );
+    }
+
+    // Geofencing Location Validation
+    if (attendance.branch && payload.checkOutLocation?.latitude && payload.checkOutLocation?.longitude) {
+      const branch = await Branch.findById(attendance.branch);
+      if (branch?.location?.latitude && branch?.location?.longitude) {
+        const radius = branch.location.radius || 10;
+        
+        const distance = this.calculateDistanceString(
+          payload.checkOutLocation.latitude,
+          payload.checkOutLocation.longitude,
+          branch.location.latitude,
+          branch.location.longitude
+        );
+
+        if (distance > radius) {
+          throw new AppError(
+            HttpStatusCode.BadRequest,
+            "Request Failed",
+            `You are outside the branch area (${Math.round(distance)}m away). Please mark attendance from the office.`
+          );
+        }
+      }
     }
 
     const now = new Date();
@@ -390,6 +456,58 @@ export class AttendanceService {
     }
 
     return attendance;
+  }
+
+  /* =============================
+          MARK FACE ATTENDANCE
+     ============================= */
+  static async markFaceAttendance(
+    employeeId: Types.ObjectId | string,
+    payload: { latitude?: number; longitude?: number; address?: string; image?: string; device?: string },
+    createdBy: Types.ObjectId
+  ) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const existingAttendance = await Attendance.findOne({
+      employee: employeeId,
+      date: today,
+    });
+
+    if (existingAttendance && existingAttendance.checkOut) {
+      throw new AppError(
+        HttpStatusCode.BadRequest,
+        "Request Failed",
+        "Already completed attendance for today!"
+      );
+    }
+
+    if (existingAttendance && existingAttendance.checkIn) {
+      // Perform Check-Out
+      const updatedAttendance = await this.checkOut(
+        {
+          checkOutLocation: payload.latitude ? { latitude: payload.latitude, longitude: payload.longitude!, address: payload.address } : undefined,
+          checkOutImage: payload.image,
+          checkOutDevice: payload.device,
+          checkOutMethod: "Face",
+        },
+        new Types.ObjectId(employeeId.toString())
+      );
+      return { type: "check-out", attendance: updatedAttendance };
+    }
+
+    // Perform Check-In
+    const updatedAttendance = await this.checkIn(
+      {
+        checkInLocation: payload.latitude ? { latitude: payload.latitude, longitude: payload.longitude!, address: payload.address } : undefined,
+        checkInImage: payload.image,
+        checkInDevice: payload.device,
+        checkInMethod: "Face",
+      },
+      new Types.ObjectId(employeeId.toString()),
+      createdBy
+    );
+    return { type: "check-in", attendance: updatedAttendance };
   }
 
   /* =============================

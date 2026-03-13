@@ -15,6 +15,12 @@ export class DesignationController {
 
     if (loggedInUser.role !== "SUPER_ADMIN") {
       payload.company = loggedInUser.company;
+    } else if (!payload.company) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Validation Error",
+        "Company is required to create a designation"
+      );
     }
 
     const designation = await DesignationService.createDesignation(
@@ -71,7 +77,7 @@ export class DesignationController {
           GET DESIGNATION BY ID
      ============================= */
   static getDesignationById = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const loggedInUser = res.locals.user;
 
     const designation = await DesignationService.getDesignationById(id);
@@ -99,7 +105,7 @@ export class DesignationController {
           UPDATE DESIGNATION
      ============================= */
   static updateDesignation = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const payload = req.body;
     const loggedInUser = res.locals.user;
 
@@ -108,7 +114,7 @@ export class DesignationController {
     if (
       loggedInUser.role !== "SUPER_ADMIN" &&
       existingDesignation.company?._id?.toString() !==
-        loggedInUser.company?.toString()
+      loggedInUser.company?.toString()
     ) {
       throw new AppError(
         HttpStatusCode.Forbidden,
@@ -131,7 +137,7 @@ export class DesignationController {
           DELETE DESIGNATION
      ============================= */
   static deleteDesignation = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const loggedInUser = res.locals.user;
 
     const existingDesignation = await DesignationService.getDesignationById(id);
@@ -139,7 +145,7 @@ export class DesignationController {
     if (
       loggedInUser.role !== "SUPER_ADMIN" &&
       existingDesignation.company?._id?.toString() !==
-        loggedInUser.company?.toString()
+      loggedInUser.company?.toString()
     ) {
       throw new AppError(
         HttpStatusCode.Forbidden,

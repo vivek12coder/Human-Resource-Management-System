@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
 
-const VALID_ROLES = ['SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'];
+const VALID_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'JUNIOR_ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'];
 
 /* =============================
       CREATE USER (SUPER_ADMIN)

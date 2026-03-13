@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Calendar,
   Clock,
@@ -18,9 +19,6 @@ import { useAuthStore } from '../../store/authStore';
 
 const AttendanceList = () => {
   const { hasRole, user } = useAuthStore();
-  const [attendances, setAttendances] = useState<Attendance[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
   const [filters, setFilters] = useState({
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
@@ -31,9 +29,9 @@ const AttendanceList = () => {
 
   const isEmployee = user?.role === 'EMPLOYEE';
 
-  const fetchAttendances = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  const { data: attendances = [], isLoading: isLoadingAttendances, refetch: refetchAttendances } = useQuery({
+    queryKey: ['attendances', filters.startDate, filters.endDate, filters.status, hasRole, isEmployee],
+    queryFn: async () => {
       if (hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN')) {
         const params = new URLSearchParams({
           startDate: filters.startDate,
@@ -41,69 +39,94 @@ const AttendanceList = () => {
           ...(filters.status && { status: filters.status }),
         });
         const response = await api.get(`/attendance?${params}`);
-        setAttendances(response.data.data.attendances || response.data.data.data || response.data.data || []);
+        return response.data.data.attendances || response.data.data.data || response.data.data || [];
       } else {
         const date = new Date(filters.startDate || new Date());
         const month = date.getMonth() + 1;
         const year = date.getFullYear();
         const response = await api.get(`/attendance/my?month=${month}&year=${year}`);
-        setAttendances(response.data.data.attendances || []);
+        return response.data.data.attendances || [];
       }
-    } catch (error) {
-      console.error('Failed to fetch attendance:', error);
-    } finally {
-      setIsLoading(false);
     }
-  }, [filters.startDate, filters.endDate, filters.status, hasRole, isEmployee]);
+  });
 
-  const fetchTodayAttendance = useCallback(async () => {
-    if (!isEmployee) {
-      setTodayAttendance(null);
-      return;
-    }
-    try {
+  const { data: todayAttendance, refetch: refetchToday } = useQuery({
+    queryKey: ['todayAttendance', isEmployee],
+    queryFn: async () => {
       const response = await api.get('/attendance/today');
-      setTodayAttendance(response.data.data);
-    } catch (error) {
-      console.error('Failed to fetch today attendance:', error);
-    }
-  }, [isEmployee]);
+      return response.data.data;
+    },
+    enabled: isEmployee,
+  });
 
-  useEffect(() => {
-    fetchAttendances();
-    fetchTodayAttendance();
-  }, [fetchAttendances, fetchTodayAttendance]);
+  const isLoading = isLoadingAttendances;
 
   const handleCheckIn = async () => {
-    setCheckInLoading(true);
-    try {
-      const response = await api.post('/attendance/check-in', {
-        checkInMethod: 'Web',
-      });
-      setTodayAttendance(response.data.data);
-      toast.success('Checked in successfully!');
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to check in');
-    } finally {
-      setCheckInLoading(false);
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
     }
+
+    setCheckInLoading(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          await api.post('/attendance/check-in', {
+            checkInMethod: 'Web',
+            checkInLocation: { latitude, longitude },
+          });
+          toast.success('Checked in successfully!');
+          refetchToday();
+          refetchAttendances();
+        } catch (error: unknown) {
+          const err = error as { response?: { data?: { message?: string } } };
+          toast.error(err.response?.data?.message || 'Failed to check in');
+        } finally {
+          setCheckInLoading(false);
+        }
+      },
+      (_error) => {
+        setCheckInLoading(false);
+        toast.error('Please enable location services to check in');
+      },
+      { enableHighAccuracy: true }
+    );
   };
 
   const handleCheckOut = async () => {
-    setCheckOutLoading(true);
-    try {
-      const response = await api.post('/attendance/check-out', {
-        checkOutMethod: 'Web',
-      });
-      setTodayAttendance(response.data.data);
-      toast.success('Checked out successfully!');
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to check out');
-    } finally {
-      setCheckOutLoading(false);
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
     }
+
+    setCheckOutLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          await api.post('/attendance/check-out', {
+            checkOutMethod: 'Web',
+            checkOutLocation: { latitude, longitude },
+          });
+          toast.success('Checked out successfully!');
+          refetchToday();
+          refetchAttendances();
+        } catch (error: unknown) {
+          const err = error as { response?: { data?: { message?: string } } };
+          toast.error(err.response?.data?.message || 'Failed to check out');
+        } finally {
+          setCheckOutLoading(false);
+        }
+      },
+      (_error) => {
+        setCheckOutLoading(false);
+        toast.error('Please enable location services to check out');
+      },
+      { enableHighAccuracy: true }
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -287,7 +310,7 @@ const AttendanceList = () => {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {attendances.filter((a) => a.status === 'Present').length}
+                {attendances.filter((a: any) => a.status === 'Present').length}
               </p>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Present</p>
             </div>
@@ -300,7 +323,7 @@ const AttendanceList = () => {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {attendances.filter((a) => a.status === 'Absent').length}
+                {attendances.filter((a: any) => a.status === 'Absent').length}
               </p>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Absent</p>
             </div>
@@ -313,7 +336,7 @@ const AttendanceList = () => {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {attendances.filter((a) => a.status === 'Late').length}
+                {attendances.filter((a: any) => a.status === 'Late').length}
               </p>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Late</p>
             </div>
@@ -326,7 +349,7 @@ const AttendanceList = () => {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {attendances.filter((a) => a.status === 'On-Leave').length}
+                {attendances.filter((a: any) => a.status === 'On-Leave').length}
               </p>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">On Leave</p>
             </div>
@@ -371,7 +394,7 @@ const AttendanceList = () => {
                 }
               />
               <div className="flex items-end">
-                <Button onClick={fetchAttendances}>Apply Filters</Button>
+                <Button onClick={() => refetchAttendances()}>Apply Filters</Button>
               </div>
             </div>
           </Card>

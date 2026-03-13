@@ -20,12 +20,13 @@ const UserSwitchModal = ({ isOpen, onClose }: UserSwitchModalProps) => {
   const [loading, setLoading] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [switchingTargetId, setSwitchingTargetId] = useState('');
+  const canSwitchAccounts = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
 
   useEffect(() => {
-    if (isOpen && currentUser?.role === 'SUPER_ADMIN') {
+    if (isOpen && canSwitchAccounts) {
       fetchSwitchingData();
     }
-  }, [isOpen, currentUser]);
+  }, [isOpen, canSwitchAccounts]);
 
   const toArray = <T,>(payload: unknown, key: string): T[] => {
     if (!payload) return [];
@@ -38,24 +39,46 @@ const UserSwitchModal = ({ isOpen, onClose }: UserSwitchModalProps) => {
     return [];
   };
 
-  const getCompanyId = (value?: string | Company) =>
+  const getCompanyId = (value?: string | { _id: string; name?: string } | Company) =>
     typeof value === 'object' ? value?._id : value;
+
+  const getCompanyName = (value?: string | { _id: string; name?: string } | Company) =>
+    typeof value === 'object' ? value?.name : undefined;
 
   const getBranchId = (value?: string | Branch) =>
     typeof value === 'object' ? value?._id : value;
 
   const fetchSwitchingData = async () => {
+    if (!currentUser || !canSwitchAccounts) return;
+
     setLoading(true);
     try {
-      const [usersRes, companiesRes, branchesRes] = await Promise.all([
+      const [usersRes, branchesRes, companiesRes] = await Promise.all([
         api.get('/users?limit=500'),
-        api.get('/companies'),
-        api.get('/branches'),
+        api.get('/branches?limit=500'),
+        currentUser.role === 'SUPER_ADMIN' ? api.get('/companies?limit=500') : Promise.resolve(null),
       ]);
 
       const userRows = toArray<User>(usersRes.data?.data, 'users');
-      const companyRows = toArray<Company>(companiesRes.data?.data, 'companies').filter((c) => c.isActive);
       const branchRows = toArray<Branch>(branchesRes.data?.data, 'branches').filter((b) => b.isActive);
+      const currentCompanyId = getCompanyId(currentUser.company);
+
+      let companyRows: Company[] = [];
+      if (currentUser.role === 'SUPER_ADMIN') {
+        companyRows = toArray<Company>(companiesRes?.data?.data, 'companies').filter((c) => c.isActive);
+      } else if (currentCompanyId) {
+        const branchCompany = branchRows.find((branch) => getCompanyId(branch.company) === currentCompanyId)?.company;
+        const fallbackName = getCompanyName(branchCompany) || getCompanyName(currentUser.company) || 'My Company';
+        companyRows = [
+          {
+            _id: currentCompanyId,
+            name: fallbackName,
+            code: 'COMP',
+            isActive: true,
+            createdAt: new Date(0).toISOString(),
+          },
+        ];
+      }
 
       setUsers(userRows);
       setCompanies(companyRows);
@@ -67,7 +90,7 @@ const UserSwitchModal = ({ isOpen, onClose }: UserSwitchModalProps) => {
         }, {})
       );
     } catch {
-      toast.error('Failed to load companies and branches');
+      toast.error('Failed to load switch data');
     } finally {
       setLoading(false);
     }
@@ -81,7 +104,7 @@ const UserSwitchModal = ({ isOpen, onClose }: UserSwitchModalProps) => {
       toast.success(`Switched to ${targetName}`);
       onClose();
     } catch {
-      toast.error(error.response?.data?.message || 'Failed to switch user');
+      toast.error('Failed to switch user');
     } finally {
       setSwitching(false);
       setSwitchingTargetId('');
@@ -91,13 +114,20 @@ const UserSwitchModal = ({ isOpen, onClose }: UserSwitchModalProps) => {
   const filteredUsers = users.filter((user) =>
     user._id !== currentUser?._id &&
     user.isActive &&
-    user.role !== 'SUPER_ADMIN'
+    user.role !== 'SUPER_ADMIN' &&
+    (
+      currentUser?.role === 'SUPER_ADMIN' ||
+      getCompanyId(user.company) === getCompanyId(currentUser?.company)
+    )
   );
 
   const rolePriority: Record<User['role'], number> = {
+    BRANCH_ADMIN: 2,
     ADMIN: 1,
-    JUNIOR_ADMIN: 2,
-    EMPLOYEE: 3,
+    JUNIOR_ADMIN: 3,
+    HR: 4,
+    MANAGER: 5,
+    EMPLOYEE: 6,
     SUPER_ADMIN: 99,
   };
 

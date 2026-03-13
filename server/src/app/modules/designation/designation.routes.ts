@@ -12,7 +12,7 @@ router.use(verifyToken);
 // Create designation
 router.post(
   "/",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       body: z.object({
@@ -43,7 +43,7 @@ router.get(
 // Get count
 router.get(
   "/count",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   DesignationController.countDesignations
 );
 
@@ -65,7 +65,7 @@ router.get(
 // Update designation
 router.put(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -88,7 +88,7 @@ router.put(
 // Delete designation
 router.delete(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({

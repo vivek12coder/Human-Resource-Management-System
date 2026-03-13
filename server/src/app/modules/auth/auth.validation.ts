@@ -49,6 +49,23 @@ export const loginValidationSchema = z.object({
     password: z
       .string({ message: "Password is required" })
       .min(6, { message: "Password must be at least 6 characters" }),
+    device: z
+      .object({
+        deviceId: z.string(),
+        deviceName: z.string(),
+        signature: z.string(),
+        details: z.object({
+          os: z.string(),
+          browser: z.string(),
+          resolution: z.string(),
+          gpu: z.string(),
+          timezone: z.string(),
+          memory: z.string(),
+          cores: z.union([z.string(), z.number()]),
+        }).optional(),
+      })
+      .optional()
+      .nullable(),
   }),
 });
 

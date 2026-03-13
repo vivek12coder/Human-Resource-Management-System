@@ -22,7 +22,8 @@ const AppHeader = () => {
   const { user, logout, isSwitched, originalUser, switchBack } = useAuthStore();
   const navigate = useNavigate();
   const [showSwitchModal, setShowSwitchModal] = useState(false);
-  const canSwitchAccounts = user?.role === 'SUPER_ADMIN';
+  const canSwitchAccounts = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+  const roleLabel = user?.role === 'JUNIOR_ADMIN' ? 'BRANCH ADMIN' : user?.role?.replace(/_/g, ' ');
 
   const handleLogout = async () => {
     await logout();
@@ -93,7 +94,7 @@ const AppHeader = () => {
                     <p className="text-sm font-semibold truncate">{user?.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                     <Badge variant="secondary" className="mt-0.5 text-[10px] px-1.5 py-0 h-4">
-                      {user?.role.replace('_', ' ')}
+                      {roleLabel}
                       {isSwitched && ' (Switched)'}
                     </Badge>
                   </div>

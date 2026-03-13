@@ -1,238 +1,88 @@
 import Branch, { IBranch } from "./branch.model";
-import { Types } from "mongoose";
-import { HttpStatusCode } from "axios";
 import AppError from "../../errors/AppError";
-import User from "../user/user.model";
-import { UserService } from "../user/user.service";
+import httpStatus from "http-status";
 
 export class BranchService {
-  /* =============================
-          CREATE BRANCH
-     ============================= */
-  static async createBranch(
-    payload: Partial<IBranch> & { email?: string; adminName?: string; adminPassword?: string },
-    createdBy: Types.ObjectId
-  ) {
-    if (!payload.email) {
-      throw new AppError(
-        HttpStatusCode.BadRequest,
-        "Request Failed",
-        "Branch Admin Email is required!"
-      );
-    }
-
-    // Check if email is already taken by a user
-    const existingUser = await User.findOne({ email: payload.email.toLowerCase(), isDeleted: false });
-    if (existingUser) {
-      throw new AppError(
-        HttpStatusCode.BadRequest,
-        "Request Failed",
-        "Email is already in use by another user!"
-      );
-    }
-
-    // Check if branch code already exists for this company
+  static createBranch = async (payload: Partial<IBranch>) => {
     const existingBranch = await Branch.findOne({
       company: payload.company,
-      code: payload.code?.toUpperCase(),
+      code: payload.code,
+      isDeleted: false,
     });
 
     if (existingBranch) {
       throw new AppError(
-        HttpStatusCode.BadRequest,
-        "Request Failed",
-        "Branch with this code already exists in this company!"
+        httpStatus.CONFLICT,
+        "Conflict",
+        "Branch with this code already exists in your company"
       );
     }
 
-    const branch = await Branch.create({
-      ...payload,
-      code: payload.code?.toUpperCase(),
-      createdBy,
-    });
-
-    try {
-      const branchAdminPayload = {
-        name: payload.adminName || `${payload.name} Admin`,
-        email: payload.email,
-        password: payload.adminPassword || "Password@123",
-        role: "JUNIOR_ADMIN" as "JUNIOR_ADMIN",
-        company: payload.company as any,
-        branch: branch._id as any,
-        permissions: ["USERS", "EMPLOYEE", "ATTENDANCE", "LEAVE", "REGULARIZATION", "PAYROLL"] as any[],
-        isActive: true,
-      };
-
-      await UserService.createNewUser(branchAdminPayload);
-    } catch (error) {
-      await Branch.findByIdAndDelete(branch._id);
-      throw error;
-    }
-
+    const branch = await Branch.create(payload);
     return branch;
-  }
+  };
 
-  /* =============================
-          GET ALL BRANCHES
-     ============================= */
-  static async getAllBranches(
-    filter: Record<string, any> = {},
-    query: { page?: number; limit?: number } = { page: 1, limit: 10 }
-  ) {
-    const page = query.page || 1;
-    const limit = query.limit || 10;
-    const skip = (page - 1) * limit;
+  static getAllBranches = async (filter: Record<string, any>, options: { page: number; limit: number }) => {
+    const skip = (options.page - 1) * options.limit;
 
-    const finalFilter = { ...filter, isDeleted: false };
-
-    const branches = await Branch.find(finalFilter)
-      .select("-__v")
+    const branches = await Branch.find({ ...filter, isDeleted: false })
       .populate("company", "name code")
-      .populate("createdBy", "name email")
-      .limit(limit)
       .skip(skip)
-      .sort({ createdAt: -1 })
-      .lean();
+      .limit(options.limit)
+      .sort({ createdAt: -1 });
 
-    const total = await Branch.countDocuments(finalFilter);
+    const total = await Branch.countDocuments({ ...filter, isDeleted: false });
 
     return {
       branches,
       total,
-      page,
-      totalPages: Math.ceil(total / limit),
+      page: options.page,
+      totalPages: Math.ceil(total / options.limit),
     };
-  }
+  };
 
-  /* =============================
-          GET BRANCH BY ID
-     ============================= */
-  static async getBranchById(_id: string | Types.ObjectId) {
-    const branch = await Branch.findById(_id)
-      .select("-__v")
-      .populate("company", "name code")
-      .populate("createdBy", "name email")
-      .lean();
-
-    if (!branch || branch.isDeleted) {
-      throw new AppError(
-        HttpStatusCode.NotFound,
-        "Request Failed",
-        "Branch not found!"
-      );
-    }
-
-    return branch;
-  }
-
-  /* =============================
-          UPDATE BRANCH
-     ============================= */
-  static async updateBranch(
-    _id: string | Types.ObjectId,
-    payload: Partial<IBranch>
-  ) {
-    // If updating code, check uniqueness
-    if (payload.code) {
-      const existingBranch = await Branch.findOne({
-        company: payload.company,
-        code: payload.code.toUpperCase(),
-        _id: { $ne: _id },
-      });
-
-      if (existingBranch) {
-        throw new AppError(
-          HttpStatusCode.BadRequest,
-          "Request Failed",
-          "Branch with this code already exists!"
-        );
-      }
-      payload.code = payload.code.toUpperCase();
-    }
-
-    const branch = await Branch.findByIdAndUpdate(_id, payload, { new: true })
-      .select("-__v")
-      .populate("company", "name code")
-      .lean();
+  static getBranchById = async (id: string) => {
+    const branch = await Branch.findOne({ _id: id, isDeleted: false }).populate(
+      "company",
+      "name code"
+    );
 
     if (!branch) {
-      throw new AppError(
-        HttpStatusCode.NotFound,
-        "Request Failed",
-        "Branch not found!"
-      );
+      throw new AppError(httpStatus.NOT_FOUND, "Not Found", "Branch not found");
     }
 
     return branch;
-  }
+  };
 
-  /* =============================
-          DELETE BRANCH (SOFT)
-     ============================= */
-  static async deleteBranch(_id: string | Types.ObjectId) {
-    const branch = await Branch.findByIdAndUpdate(
-      _id,
-      { isDeleted: true },
-      { new: true }
-    ).lean();
+  static updateBranch = async (id: string, payload: Partial<IBranch>) => {
+    const branch = await Branch.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      payload,
+      { new: true, runValidators: true }
+    );
 
     if (!branch) {
-      throw new AppError(
-        HttpStatusCode.NotFound,
-        "Request Failed",
-        "Branch not found!"
-      );
+      throw new AppError(httpStatus.NOT_FOUND, "Not Found", "Branch not found");
     }
 
     return branch;
-  }
+  };
 
-  /* =============================
-          TOGGLE BRANCH STATUS
-     ============================= */
-  static async toggleBranchStatus(
-    _id: string | Types.ObjectId,
-    isActive: boolean
-  ) {
-    const branch = await Branch.findByIdAndUpdate(
-      _id,
-      { isActive },
+  static deleteBranch = async (id: string) => {
+    const branch = await Branch.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      { isDeleted: true, isActive: false },
       { new: true }
-    )
-      .select("-__v")
-      .lean();
+    );
 
-    if (!branch || branch.isDeleted) {
-      throw new AppError(
-        HttpStatusCode.NotFound,
-        "Request Failed",
-        "Branch not found!"
-      );
+    if (!branch) {
+      throw new AppError(httpStatus.NOT_FOUND, "Not Found", "Branch not found");
     }
 
     return branch;
-  }
+  };
 
-  /* =============================
-          GET BRANCHES BY COMPANY
-     ============================= */
-  static async getBranchesByCompany(companyId: string | Types.ObjectId) {
-    const branches = await Branch.find({
-      company: companyId,
-      isDeleted: false,
-      isActive: true,
-    })
-      .select("name code isHeadOffice")
-      .lean();
-
-    return branches;
-  }
-
-  /* =============================
-          COUNT BRANCHES
-     ============================= */
-  static async countBranches(filter: Record<string, any> = {}) {
+  static countBranches = async (filter: Record<string, any>) => {
     return await Branch.countDocuments({ ...filter, isDeleted: false });
-  }
+  };
 }
-

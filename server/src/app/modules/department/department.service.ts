@@ -155,12 +155,17 @@ export class DepartmentService {
   /* =============================
           GET DEPARTMENTS DROPDOWN
      ============================= */
-  static async getDepartmentsDropdown(companyId: string | Types.ObjectId) {
-    const departments = await Department.find({
-      company: companyId,
+  static async getDepartmentsDropdown(companyId?: string | Types.ObjectId) {
+    const filter: Record<string, any> = {
       isDeleted: false,
       isActive: true,
-    })
+    };
+
+    if (companyId) {
+      filter.company = companyId;
+    }
+
+    const departments = await Department.find(filter)
       .select("name code")
       .lean();
 

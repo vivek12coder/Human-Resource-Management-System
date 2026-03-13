@@ -96,6 +96,9 @@ export interface IEmployee extends Document {
     unpaid: number;
   };
 
+  // Face Recognition Setting
+  faceRegistered: boolean;
+
   isActive: boolean;
   isDeleted: boolean;
   createdBy: mongoose.Types.ObjectId;
@@ -319,6 +322,12 @@ const employeeSchema = new Schema<IEmployee>(
       unpaid: { type: Number, default: 0 },
     },
 
+    // Face Recognition Setting
+    faceRegistered: {
+      type: Boolean,
+      default: false,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
@@ -363,4 +372,3 @@ employeeSchema.set("toObject", { virtuals: true });
 const Employee = mongoose.model<IEmployee>("Employee", employeeSchema);
 
 export default Employee;
-

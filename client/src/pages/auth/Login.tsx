@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { cn } from '@/lib/utils';
+import { getDeviceFingerprint } from '../../lib/deviceFingerprint';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -39,7 +40,8 @@ const Login = () => {
 
   const onSubmit = async (data: LoginForm) => {
     try {
-      await login(data.email, data.password);
+      const deviceData = await getDeviceFingerprint();
+      await login(data.email, data.password, deviceData);
       toast.success('Login successful');
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };

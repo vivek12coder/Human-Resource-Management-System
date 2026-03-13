@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Wallet,
-  DollarSign,
+  IndianRupee,
   Download,
   Eye,
   CheckCircle,
@@ -18,9 +19,6 @@ import { useAuthStore } from '../../store/authStore';
 
 const PayrollList = () => {
   const { hasRole, hasPermission } = useAuthStore();
-  const [payrolls, setPayrolls] = useState<Payroll[]>([]);
-  const [myPayslips, setMyPayslips] = useState<Payroll[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [generateModal, setGenerateModal] = useState(false);
   const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null);
   const [viewModal, setViewModal] = useState(false);
@@ -46,33 +44,34 @@ const PayrollList = () => {
     { value: '12', label: 'December' },
   ];
 
-  const fetchPayrolls = async () => {
-    setIsLoading(true);
-    try {
-      if (hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN')) {
-        const params = new URLSearchParams({
-          month: filters.month.toString(),
-          year: filters.year.toString(),
-          ...(filters.status && { status: filters.status }),
-        });
-        const response = await api.get(`/payroll?${params}`);
-        const payrollData = response.data?.data?.data ?? response.data?.data;
-        setPayrolls(Array.isArray(payrollData) ? payrollData : []);
-      }
+  const queryClient = useQueryClient();
 
+  const { data: payrolls = [], isLoading: payrollsLoading, refetch: refetchPayrolls } = useQuery({
+    queryKey: ['payrolls', filters.month, filters.year, filters.status],
+    queryFn: async () => {
+      if (!hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN')) return [];
+      const params = new URLSearchParams({
+        month: filters.month.toString(),
+        year: filters.year.toString(),
+        ...(filters.status && { status: filters.status }),
+      });
+      const response = await api.get(`/payroll?${params}`);
+      const payrollData = response.data?.data?.data ?? response.data?.data;
+      return Array.isArray(payrollData) ? payrollData : [];
+    },
+    enabled: hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN'),
+  });
+
+  const { data: myPayslips = [], isLoading: myPayslipsLoading } = useQuery({
+    queryKey: ['myPayslips'],
+    queryFn: async () => {
       const myResponse = await api.get('/payroll/my');
       const myData = myResponse.data?.data?.data ?? myResponse.data?.data;
-      setMyPayslips(Array.isArray(myData) ? myData : []);
-    } catch {
-      toast.error('Failed to fetch payroll data');
-    } finally {
-      setIsLoading(false);
+      return Array.isArray(myData) ? myData : [];
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchPayrolls();
-  }, [filters, hasRole]);
+  const isLoading = payrollsLoading || myPayslipsLoading;
 
   const handleBulkGenerate = async () => {
     setBulkGenerating(true);
@@ -83,7 +82,7 @@ const PayrollList = () => {
       });
       toast.success('Payroll generated successfully!');
       setGenerateModal(false);
-      fetchPayrolls();
+      refetchPayrolls();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || 'Failed to generate payroll');
@@ -92,26 +91,69 @@ const PayrollList = () => {
     }
   };
 
-  const handleApprove = async (payroll: Payroll) => {
-    try {
-      await api.patch(`/payroll/${payroll._id}/approve`);
-      toast.success('Payroll approved!');
-      fetchPayrolls();
-    } catch {
-      toast.error('Failed to approve payroll');
-    }
-  };
+  const approveMutation = useMutation({
+    mutationFn: async (payrollId: string) => {
+      return api.patch(`/payroll/${payrollId}/approve`);
+    },
+    // Optimistic Update
+    onMutate: async (payrollId) => {
+      await queryClient.cancelQueries({ queryKey: ['payrolls'] });
+      const previousPayrolls = queryClient.getQueryData(['payrolls', filters.month, filters.year, filters.status]);
+      
+      queryClient.setQueryData(
+        ['payrolls', filters.month, filters.year, filters.status],
+        (old: Payroll[] | undefined) => 
+          old?.map((p) => p._id === payrollId ? { ...p, status: 'Approved' } : p)
+      );
 
-  const handleMarkAsPaid = async (payroll: Payroll) => {
-    try {
-      await api.patch(`/payroll/${payroll._id}/paid`, {
+      return { previousPayrolls };
+    },
+    onError: (_err, _newVal, context) => {
+      if (context?.previousPayrolls) {
+        queryClient.setQueryData(['payrolls', filters.month, filters.year, filters.status], context.previousPayrolls);
+      }
+      toast.error('Failed to approve payroll');
+    },
+    onSuccess: () => {
+      toast.success('Payroll approved!');
+    },
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: async (payrollId: string) => {
+      return api.patch(`/payroll/${payrollId}/paid`, {
         paymentMethod: 'Bank Transfer',
       });
-      toast.success('Marked as paid!');
-      fetchPayrolls();
-    } catch {
+    },
+    onMutate: async (payrollId) => {
+      await queryClient.cancelQueries({ queryKey: ['payrolls'] });
+      const previousPayrolls = queryClient.getQueryData(['payrolls', filters.month, filters.year, filters.status]);
+      
+      queryClient.setQueryData(
+        ['payrolls', filters.month, filters.year, filters.status],
+        (old: Payroll[] | undefined) => 
+          old?.map((p) => p._id === payrollId ? { ...p, status: 'Paid' } : p)
+      );
+
+      return { previousPayrolls };
+    },
+    onError: (_err, _newVal, context) => {
+      if (context?.previousPayrolls) {
+        queryClient.setQueryData(['payrolls', filters.month, filters.year, filters.status], context.previousPayrolls);
+      }
       toast.error('Failed to update payment status');
-    }
+    },
+    onSuccess: () => {
+      toast.success('Marked as paid!');
+    },
+  });
+
+  const handleApprove = (payroll: Payroll) => {
+    approveMutation.mutate(payroll._id);
+  };
+
+  const handleMarkAsPaid = (payroll: Payroll) => {
+    markPaidMutation.mutate(payroll._id);
   };
 
   const handleDownloadPayslip = async (payroll: Payroll) => {
@@ -357,7 +399,7 @@ const PayrollList = () => {
         <Card variant="stat" padding="sm" className="animate-fadeIn" style={{ animationDelay: '150ms' }}>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-primary" />
+              <IndianRupee className="w-6 h-6 text-primary" />
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">

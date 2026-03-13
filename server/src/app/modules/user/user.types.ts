@@ -7,6 +7,7 @@ import { Types, Document } from "mongoose";
 export type UserRole =
   | "SUPER_ADMIN"
   | "ADMIN"
+  | "BRANCH_ADMIN"
   | "JUNIOR_ADMIN"
   | "HR"
   | "MANAGER"

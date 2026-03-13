@@ -153,14 +153,17 @@ export class DesignationService {
           GET DESIGNATIONS DROPDOWN
      ============================= */
   static async getDesignationsDropdown(
-    companyId: string | Types.ObjectId,
+    companyId?: string | Types.ObjectId,
     departmentId?: string
   ) {
     const filter: Record<string, any> = {
-      company: companyId,
       isDeleted: false,
       isActive: true,
     };
+
+    if (companyId) {
+      filter.company = companyId;
+    }
 
     if (departmentId) {
       filter.department = departmentId;

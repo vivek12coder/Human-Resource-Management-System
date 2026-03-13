@@ -69,7 +69,7 @@ export class DepartmentController {
           GET DEPARTMENT BY ID
      ============================= */
   static getDepartmentById = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const loggedInUser = res.locals.user;
 
     const department = await DepartmentService.getDepartmentById(id);
@@ -97,7 +97,7 @@ export class DepartmentController {
           UPDATE DEPARTMENT
      ============================= */
   static updateDepartment = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const payload = req.body;
     const loggedInUser = res.locals.user;
 
@@ -128,7 +128,7 @@ export class DepartmentController {
           DELETE DEPARTMENT
      ============================= */
   static deleteDepartment = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const loggedInUser = res.locals.user;
 
     const existingDept = await DepartmentService.getDepartmentById(id);

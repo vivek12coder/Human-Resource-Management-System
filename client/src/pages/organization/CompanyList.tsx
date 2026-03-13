@@ -13,6 +13,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button, Card, Input, Badge, Table, Modal } from '../../components/ui';
+import LocationPicker from '../../components/LocationPicker';
 import type { Company } from '../../types';
 import api from '../../lib/api';
 
@@ -29,12 +30,25 @@ const companySchema = z.object({
 
 type CompanyForm = z.infer<typeof companySchema>;
 
+const parseLatLng = (value?: string | null) => {
+  if (!value) return null;
+  const matches = value.match(/-?\d+(?:\.\d+)?/g);
+  if (!matches || matches.length < 2) return null;
+  const lat = Number(matches[0]);
+  const lng = Number(matches[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+};
+
+const formatLatLng = (lat: number, lng: number) => `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
 const CompanyList = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [formModal, setFormModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; company: Company | null }>({
     open: false,
     company: null,
@@ -110,6 +124,7 @@ const CompanyList = () => {
     setValue('code', company.code);
     setValue('phone', company.phone || '');
     setValue('address', company.address || '');
+    setLocation(parseLatLng(company.address));
     setFormModal(true);
     await fetchCompanyAdmin(company._id);
   };
@@ -117,9 +132,19 @@ const CompanyList = () => {
   const closeFormModal = () => {
     setFormModal(false);
     setEditingCompany(null);
+    setLocation(null);
     reset({
       adminRole: 'ADMIN',
     });
+  };
+
+  const handleLocationChange = (coords: { lat: number; lng: number }) => {
+    setLocation(coords);
+    setValue('address', formatLatLng(coords.lat, coords.lng), { shouldDirty: true });
+  };
+
+  const handleAddressChange = (address: string) => {
+    setValue('address', address, { shouldDirty: true });
   };
 
   const onSubmit = async (data: CompanyForm) => {
@@ -409,6 +434,13 @@ const CompanyList = () => {
               {...register('address')}
             />
           </div>
+          <LocationPicker
+            value={location}
+            onChange={handleLocationChange}
+            onAddressChange={handleAddressChange}
+            label="Live Location"
+            helperText="Live location will auto-fill the address."
+          />
           <div className="flex items-center justify-end gap-3 pt-4">
             <Button type="button" variant="ghost" onClick={closeFormModal}>
               Cancel

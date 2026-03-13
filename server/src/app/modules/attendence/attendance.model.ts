@@ -19,7 +19,7 @@ export interface IAttendance extends Document {
   };
   checkInImage?: string;
   checkInDevice?: string;
-  checkInMethod: "Mobile" | "Biometric" | "Web" | "Manual";
+  checkInMethod: "Mobile" | "Biometric" | "Web" | "Manual" | "Face";
   
   // Check Out Details
   checkOut?: Date;
@@ -30,7 +30,7 @@ export interface IAttendance extends Document {
   };
   checkOutImage?: string;
   checkOutDevice?: string;
-  checkOutMethod?: "Mobile" | "Biometric" | "Web" | "Manual";
+  checkOutMethod?: "Mobile" | "Biometric" | "Web" | "Manual" | "Face";
   
   // Working Hours
   totalHours?: number;
@@ -94,7 +94,7 @@ const attendanceSchema = new Schema<IAttendance>(
     checkInDevice: String,
     checkInMethod: {
       type: String,
-      enum: ["Mobile", "Biometric", "Web", "Manual"],
+      enum: ["Mobile", "Biometric", "Web", "Manual", "Face"],
       default: "Mobile",
     },
     
@@ -111,7 +111,7 @@ const attendanceSchema = new Schema<IAttendance>(
     checkOutDevice: String,
     checkOutMethod: {
       type: String,
-      enum: ["Mobile", "Biometric", "Web", "Manual"],
+      enum: ["Mobile", "Biometric", "Web", "Manual", "Face"],
     },
     
     // Working Hours
@@ -183,6 +183,7 @@ const attendanceSchema = new Schema<IAttendance>(
 
 // Unique attendance per employee per day
 attendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
+attendanceSchema.index({ date: 1, employee: 1 });
 attendanceSchema.index({ company: 1, date: 1 });
 attendanceSchema.index({ employee: 1 });
 attendanceSchema.index({ status: 1 });

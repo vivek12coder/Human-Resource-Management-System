@@ -72,7 +72,7 @@ router.patch(
 // Get all leaves
 router.get(
   "/",
-  authorizeRoles("SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   checkPermission("LEAVE_VIEW"),
   LeaveController.getAllLeaves
 );
@@ -80,14 +80,14 @@ router.get(
 // Get pending leaves count
 router.get(
   "/pending/count",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   LeaveController.getPendingLeavesCount
 );
 
 // Get leave stats
 router.get(
   "/stats",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN"),
   LeaveController.getLeaveStats
 );
 
@@ -109,7 +109,7 @@ router.get(
 // Approve leave
 router.patch(
   "/:id/approve",
-  authorizeRoles("SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   checkPermission("LEAVE_APPROVE"),
   validateRequest(
     z.object({
@@ -126,7 +126,7 @@ router.patch(
 // Reject leave
 router.patch(
   "/:id/reject",
-  authorizeRoles("SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   checkPermission("LEAVE_APPROVE"),
   validateRequest(
     z.object({

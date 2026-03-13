@@ -40,6 +40,7 @@ const LeaveList = () => {
   const { hasRole, hasPermission } = useAuthStore();
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [myLeaves, setMyLeaves] = useState<Leave[]>([]);
+  const [leaveBalance, setLeaveBalance] = useState<{ casual: number; sick: number; earned: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [applyModal, setApplyModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -61,19 +62,39 @@ const LeaveList = () => {
   const fetchLeaves = async () => {
     setIsLoading(true);
     try {
+      // Fetch all leaves for admins — response is paginated: { leaves, total, page, totalPages }
       if (hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN')) {
         const response = await api.get('/leaves');
-        if (response.data.data) {
-          setLeaves(response.data.data);
+        const data = response.data.data;
+        if (data && Array.isArray(data.leaves)) {
+          setLeaves(data.leaves);
+        } else if (Array.isArray(data)) {
+          setLeaves(data);
         } else {
           setLeaves([]);
         }
       }
 
-      const myResponse = await api.get('/leaves/my');
-      if (myResponse.data.data) {
-        setMyLeaves(myResponse.data.data);
-      } else {
+      // Fetch my own leaves and leave balance
+      try {
+        const [myResponse, balanceResponse] = await Promise.all([
+          api.get('/leaves/my'),
+          api.get('/leaves/balance/my').catch(() => ({ data: { data: null } })),
+        ]);
+        if (Array.isArray(myResponse.data.data)) {
+          setMyLeaves(myResponse.data.data);
+        } else {
+          setMyLeaves([]);
+        }
+        if (balanceResponse.data?.data) {
+          setLeaveBalance(balanceResponse.data.data);
+        }
+      } catch (myErr: unknown) {
+        const err = myErr as { response?: { status?: number } };
+        // 404 means no employee profile (e.g. SUPER_ADMIN) — silently skip
+        if (err.response?.status !== 404) {
+          throw myErr;
+        }
         setMyLeaves([]);
       }
     } catch (error: unknown) {
@@ -278,7 +299,7 @@ const LeaveList = () => {
               <Calendar className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">12</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{leaveBalance ? leaveBalance.casual : '-'}</p>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Casual Leave</p>
             </div>
           </div>
@@ -289,7 +310,7 @@ const LeaveList = () => {
               <CalendarOff className="w-5 h-5 text-danger" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">6</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{leaveBalance ? leaveBalance.sick : '-'}</p>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sick Leave</p>
             </div>
           </div>
@@ -300,15 +321,15 @@ const LeaveList = () => {
               <Clock className="w-5 h-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">15</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{leaveBalance ? leaveBalance.earned : '-'}</p>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Earned Leave</p>
             </div>
           </div>
         </Card>
         <Card variant="stat" padding="sm" className="animate-fadeIn" style={{ animationDelay: '300ms' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-amber-500" />
+            <div className="p-2 bg-warning/10 rounded-lg">
+              <Clock className="w-5 h-5 text-warning" />
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -320,18 +341,20 @@ const LeaveList = () => {
         </Card>
       </div>
 
-      {/* My Leaves */}
-      <Card className="animate-fadeIn" style={{ animationDelay: '350ms' }}>
-        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">
-          My Leave Applications
-        </h3>
-        <Table
-          data={myLeaves}
-          columns={myLeaveColumns}
-          isLoading={isLoading}
-          emptyMessage="No leave applications found"
-        />
-      </Card>
+      {/* My Leaves — hidden for SUPER_ADMIN who has no employee profile */}
+      {!hasRole('SUPER_ADMIN') && (
+        <Card className="animate-fadeIn" style={{ animationDelay: '350ms' }}>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">
+            My Leave Applications
+          </h3>
+          <Table
+            data={myLeaves}
+            columns={myLeaveColumns}
+            isLoading={isLoading}
+            emptyMessage="No leave applications found"
+          />
+        </Card>
+      )}
 
       {/* All Leaves (Admin Only) */}
       {hasRole('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN') && (

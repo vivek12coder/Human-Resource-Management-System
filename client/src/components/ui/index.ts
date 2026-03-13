@@ -7,6 +7,7 @@ export { HrmInput as Input } from './HrmInput';
 export { HrmSelect as Select } from './HrmSelect';
 export { HrmTable as Table } from './HrmTable';
 export { HrmModal as Modal } from './HrmModal';
+export { ErrorBoundary } from './ErrorBoundary';
 
 // ─── shadcn/ui primitives (prefixed for direct use) ───────
 export { buttonVariants } from './button';

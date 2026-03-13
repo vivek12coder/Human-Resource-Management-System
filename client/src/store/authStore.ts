@@ -6,11 +6,27 @@ export interface User {
   _id: string;
   name: string;
   email: string;
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'JUNIOR_ADMIN' | 'EMPLOYEE';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'BRANCH_ADMIN' | 'JUNIOR_ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
   company?: string | { _id: string; name?: string };
   branch?: string | { _id: string; name?: string };
   permissions?: string[];
   isActive?: boolean;
+  devices?: {
+    deviceId: string;
+    deviceName?: string;
+    signature: string;
+    lastLogin: string;
+    ipAddress?: string;
+    details?: {
+      os: string;
+      browser: string;
+      resolution: string;
+      gpu: string;
+      timezone: string;
+      memory: string;
+      cores: string | number;
+    };
+  }[];
 }
 
 interface AuthState {
@@ -20,7 +36,7 @@ interface AuthState {
   isInitializing: boolean;
   originalUser: User | null;
   isSwitched: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, deviceData?: any) => Promise<void>;
   logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
   silentRefresh: () => Promise<boolean>;
@@ -42,10 +58,12 @@ export const useAuthStore = create<AuthState>()(
       originalUser: null,
       isSwitched: false,
 
-      login: async (email: string, password: string) => {
-        set({ isLoading: true });
+      login: async (email: string, password: string, deviceData: any) => {
         try {
-          const response = await api.post('/auth/login', { email, password });
+          set({ isLoading: true });
+          const payload = { email, password, device: deviceData };
+          const response = await api.post('/auth/login', payload);
+
           const { tokens, user } = response.data.data;
 
           // Store only the short-lived access token in sessionStorage
@@ -134,8 +152,8 @@ export const useAuthStore = create<AuthState>()(
 
       switchToUser: async (userId: string) => {
         const { user } = get();
-        if (!user || user.role !== 'SUPER_ADMIN') {
-          throw new Error('Only super admin can switch accounts');
+        if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN')) {
+          throw new Error('Only super admin or company admin can switch accounts');
         }
 
         set({ isLoading: true });

@@ -214,6 +214,25 @@ export class AttendanceController {
     });
   });
 
+  static markFaceAttendance = catchAsync(async (req, res) => {
+    const { employeeId, ...payload } = req.body;
+    const loggedInUser = res.locals.user;
+
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      throw new AppError(HttpStatusCode.NotFound, "Request Failed", "Employee not found!");
+    }
+
+    const { type, attendance } = await AttendanceService.markFaceAttendance(employeeId, payload, loggedInUser._id);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: `Successfully ${type === "check-in" ? "checked in" : "checked out"} via Face Recognition`,
+      data: { type, attendance },
+    });
+  });
+
   static getAttendanceStats = catchAsync(async (req, res) => {
     const { date } = req.query;
     const loggedInUser = res.locals.user;

@@ -8,7 +8,10 @@ import bcrypt from "bcryptjs";
 export type UserRole =
   | "SUPER_ADMIN"
   | "ADMIN"
+  | "BRANCH_ADMIN"
   | "JUNIOR_ADMIN"
+  | "HR"
+  | "MANAGER"
   | "EMPLOYEE";
 
 export interface IUser extends Document {
@@ -23,6 +26,23 @@ export interface IUser extends Document {
   employee?: mongoose.Types.ObjectId;
 
   permissions: string[]; // ✅ Dynamic module permissions (for Junior Admin)
+  
+  devices: {
+    deviceId: string;
+    deviceName: string;
+    signature: string;
+    lastLogin: Date;
+    ipAddress?: string;
+    details?: {
+      os: string;
+      browser: string;
+      resolution: string;
+      gpu: string;
+      timezone: string;
+      memory: string;
+      cores: string | number;
+    };
+  }[];
 
   isActive: boolean;
   isDeleted: boolean;
@@ -62,7 +82,15 @@ const userSchema = new Schema<IUser>(
 
     role: {
       type: String,
-      enum: ["SUPER_ADMIN", "ADMIN", "JUNIOR_ADMIN", "EMPLOYEE"],
+      enum: [
+        "SUPER_ADMIN",
+        "ADMIN",
+        "BRANCH_ADMIN",
+        "JUNIOR_ADMIN",
+        "HR",
+        "MANAGER",
+        "EMPLOYEE",
+      ],
       required: true,
     },
 
@@ -89,6 +117,25 @@ const userSchema = new Schema<IUser>(
       type: [String],
       default: [],
     },
+
+    devices: [
+      {
+        deviceId: { type: String, required: true },
+        deviceName: { type: String },
+        signature: { type: String, required: true },
+        lastLogin: { type: Date, default: Date.now },
+        ipAddress: { type: String },
+        details: {
+          os: { type: String },
+          browser: { type: String },
+          resolution: { type: String },
+          gpu: { type: String },
+          timezone: { type: String },
+          memory: { type: String },
+          cores: { type: Schema.Types.Mixed },
+        }
+      }
+    ],
 
     isActive: {
       type: Boolean,

@@ -11,27 +11,35 @@ import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button, Card, Input, Badge, Table, Modal } from '../../components/ui';
-import type { Department } from '../../types';
+import { Button, Card, Input, Badge, Table, Modal, Select } from '../../components/ui';
+import type { Department, Company } from '../../types';
 import api from '../../lib/api';
 import { useAuthStore } from '../../store/authStore';
 
-const departmentSchema = z.object({
+const baseSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   code: z.string().min(2, 'Code must be at least 2 characters'),
   description: z.string().optional(),
 });
 
-type DepartmentForm = z.infer<typeof departmentSchema>;
+const superAdminSchema = baseSchema.extend({
+  company: z.string().min(1, 'Company is required'),
+});
+
+type DepartmentForm = z.infer<typeof superAdminSchema>;
 
 const DepartmentList = () => {
   const { hasRole } = useAuthStore();
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [formModal, setFormModal] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; department: Department | null }>({ open: false, department: null });
+
+  const isSuperAdmin = hasRole('SUPER_ADMIN');
+  const schema = isSuperAdmin ? superAdminSchema : baseSchema;
 
   const {
     register,
@@ -40,13 +48,13 @@ const DepartmentList = () => {
     reset,
     setValue,
   } = useForm<DepartmentForm>({
-    resolver: zodResolver(departmentSchema),
+    resolver: zodResolver(schema) as any, // Bypass strict type check for conditional schema
   });
 
   const fetchDepartments = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/departments');
+      const response = await api.get('/departments?limit=1000');
       const payload = response.data?.data;
 
       if (Array.isArray(payload?.departments)) {
@@ -59,22 +67,43 @@ const DepartmentList = () => {
         setDepartments([]);
       }
     } catch {
-      console.error('Failed to fetch departments:', error);
+      console.error('Failed to fetch departments');
       setDepartments([]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const fetchCompanies = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      const response = await api.get('/companies');
+      const payload = response.data?.data;
+      if (Array.isArray(payload?.companies)) {
+        setCompanies(payload.companies);
+      } else if (Array.isArray(payload)) {
+        setCompanies(payload);
+      }
+    } catch {
+      console.error('Failed to fetch companies');
+    }
+  };
+
   useEffect(() => {
     fetchDepartments();
-  }, []);
+    fetchCompanies();
+  }, [isSuperAdmin]);
 
   const openEditModal = (department: Department) => {
     setEditingDepartment(department);
     setValue('name', department.name);
     setValue('code', department.code);
     setValue('description', department.description || '');
+    if (department.company && typeof department.company === 'object' && '_id' in department.company) {
+      setValue('company', department.company._id);
+    } else if (typeof department.company === 'string') {
+      setValue('company', department.company);
+    }
     setFormModal(true);
   };
 
@@ -157,7 +186,7 @@ const DepartmentList = () => {
       key: 'actions',
       header: 'Actions',
       render: (department: Department) =>
-        hasRole('SUPER_ADMIN', 'ADMIN') ? (
+        hasRole('SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'JUNIOR_ADMIN') ? (
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => {
@@ -196,7 +225,7 @@ const DepartmentList = () => {
             Manage organization departments
           </p>
         </div>
-        {hasRole('SUPER_ADMIN', 'ADMIN') && (
+        {hasRole('SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'JUNIOR_ADMIN') && (
           <Button
             onClick={() => setFormModal(true)}
             leftIcon={<Plus className="w-4 h-4" />}
@@ -278,6 +307,18 @@ const DepartmentList = () => {
             error={errors.code?.message}
             {...register('code')}
           />
+          
+          {hasRole('SUPER_ADMIN') && (
+            <Select
+              label="Company"
+              options={companies.map(c => ({ value: c._id, label: c.name }))}
+              placeholder="Select Company"
+              error={errors.company?.message}
+              {...register('company')}
+              disabled={!!editingDepartment}
+            />
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1.5">
               Description

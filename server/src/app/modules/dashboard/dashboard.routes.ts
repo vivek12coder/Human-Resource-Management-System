@@ -20,8 +20,14 @@ router.get(
 
 router.get(
   "/branch-admin",
-  authorizeRoles("JUNIOR_ADMIN"),
+  authorizeRoles("JUNIOR_ADMIN", "BRANCH_ADMIN"),
   DashboardController.getBranchAdminDashboard
+);
+
+router.get(
+  "/hr",
+  authorizeRoles("HR"),
+  DashboardController.getHRDashboard
 );
 
 router.get(

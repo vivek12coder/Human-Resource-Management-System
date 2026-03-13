@@ -60,7 +60,7 @@ export class CompanyController {
   static getCompanyById = catchAsync(async (req, res) => {
     const { id } = req.params;
 
-    const company = await CompanyService.getCompanyById(id);
+    const company = await CompanyService.getCompanyById(id as string);
 
     sendResponse(res, {
       statusCode: httpStatus.OK,
@@ -77,7 +77,7 @@ export class CompanyController {
     const { id } = req.params;
     const payload = req.body;
 
-    const company = await CompanyService.updateCompany(id, payload);
+    const company = await CompanyService.updateCompany(id as string, payload);
 
     sendResponse(res, {
       statusCode: httpStatus.OK,
@@ -93,7 +93,7 @@ export class CompanyController {
   static deleteCompany = catchAsync(async (req, res) => {
     const { id } = req.params;
 
-    await CompanyService.deleteCompany(id);
+    await CompanyService.deleteCompany(id as string);
 
     sendResponse(res, {
       statusCode: httpStatus.OK,
@@ -110,7 +110,7 @@ export class CompanyController {
     const { id } = req.params;
     const { isActive } = req.body;
 
-    const company = await CompanyService.toggleCompanyStatus(id, isActive);
+    const company = await CompanyService.toggleCompanyStatus(id as string, isActive);
 
     sendResponse(res, {
       statusCode: httpStatus.OK,

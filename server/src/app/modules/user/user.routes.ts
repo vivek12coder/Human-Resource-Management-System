@@ -20,7 +20,7 @@ router.post(
 // Get users
 router.get(
   '/',
-  authorizeRoles('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN'),
+  authorizeRoles('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN', 'BRANCH_ADMIN'),
   validateRequest(UserValidationsHRM.paginationValidationSchema),
   UserController.getUserList
 );
@@ -28,7 +28,7 @@ router.get(
 // Count users
 router.get(
   '/count',
-  authorizeRoles('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN'),
+  authorizeRoles('SUPER_ADMIN', 'ADMIN', 'JUNIOR_ADMIN', 'BRANCH_ADMIN'),
   validateRequest(
     z.object({
       query: z.object({
@@ -83,4 +83,5 @@ router.delete(
 );
 
 export default router;
+
 

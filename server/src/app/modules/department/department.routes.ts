@@ -12,7 +12,7 @@ router.use(verifyToken);
 // Create department
 router.post(
   "/",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       body: z.object({
@@ -30,7 +30,7 @@ router.post(
 // Get all departments
 router.get(
   "/",
-  checkPermission("DEPARTMENT_VIEW"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   DepartmentController.getAllDepartments
 );
 
@@ -43,13 +43,14 @@ router.get(
 // Get count
 router.get(
   "/count",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   DepartmentController.countDepartments
 );
 
 // Get by ID
 router.get(
   "/:id",
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -65,7 +66,7 @@ router.get(
 // Update department
 router.put(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({
@@ -87,7 +88,7 @@ router.put(
 // Delete department
 router.delete(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "ADMIN", "HR", "BRANCH_ADMIN", "JUNIOR_ADMIN"),
   validateRequest(
     z.object({
       params: z.object({

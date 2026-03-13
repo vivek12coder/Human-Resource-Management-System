@@ -13,6 +13,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button, Card, Input, Badge, Table, Modal, Select } from '../../components/ui';
+import LocationPicker from '../../components/LocationPicker';
 import type { Branch } from '../../types';
 import api from '../../lib/api';
 import { useAuthStore } from '../../store/authStore';
@@ -24,12 +25,33 @@ const branchSchema = z.object({
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   phone: z.string().optional(),
   address: z.string().optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  radius: z.number().min(1).default(10).optional(),
   isHeadOffice: z.boolean().optional(),
-  adminName: z.string().optional(),
-  adminPassword: z.string().optional(),
+  adminName: z
+    .string()
+    .optional()
+    .refine((value) => !value || value.trim().length >= 2, 'Admin name must be at least 2 characters'),
+  adminPassword: z
+    .string()
+    .optional()
+    .refine((value) => !value || value.trim().length >= 6, 'Password must be at least 6 characters'),
 });
 
 type BranchForm = z.infer<typeof branchSchema>;
+
+const parseLatLng = (value?: string | null) => {
+  if (!value) return null;
+  const matches = value.match(/-?\d+(?:\.\d+)?/g);
+  if (!matches || matches.length < 2) return null;
+  const lat = Number(matches[0]);
+  const lng = Number(matches[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+};
+
+const formatLatLng = (lat: number, lng: number) => `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
 const BranchList = () => {
   const { user, hasRole } = useAuthStore();
@@ -39,6 +61,7 @@ const BranchList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [formModal, setFormModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; branch: Branch | null }>({
     open: false,
     branch: null,
@@ -127,6 +150,10 @@ const BranchList = () => {
     setValue('email', branch.email || '');
     setValue('phone', branch.phone || '');
     setValue('address', branch.address || '');
+    setValue('latitude', branch.location?.latitude || undefined);
+    setValue('longitude', branch.location?.longitude || undefined);
+    setValue('radius', branch.location?.radius || 10);
+    setLocation(parseLatLng(branch.address));
     setValue('isHeadOffice', branch.isHeadOffice || false);
     setValue('adminName', '');
     setValue('adminPassword', '');
@@ -136,20 +163,47 @@ const BranchList = () => {
   const closeFormModal = () => {
     setFormModal(false);
     setEditingBranch(null);
+    setLocation(null);
     reset({
       company: hasRole('SUPER_ADMIN') ? '' : currentCompanyId || '',
     });
   };
 
+  const handleLocationChange = (coords: { lat: number; lng: number }) => {
+    setLocation(coords);
+    setValue('address', formatLatLng(coords.lat, coords.lng), { shouldDirty: true });
+  };
+
+  const handleAddressChange = (address: string) => {
+    setValue('address', address, { shouldDirty: true });
+  };
+
   const onSubmit = async (data: BranchForm) => {
     try {
-      const payload: BranchForm = {
+      const payload = {
         ...data,
+        name: data.name.trim(),
+        code: data.code.trim(),
         company: hasRole('SUPER_ADMIN') ? data.company : currentCompanyId || data.company,
+        email: data.email?.trim() || undefined,
+        phone: data.phone?.trim() || undefined,
+        address: data.address?.trim() || undefined,
+        location: (data.latitude !== undefined && data.longitude !== undefined) ? {
+          latitude: data.latitude,
+          longitude: data.longitude,
+          radius: data.radius || 10,
+        } : undefined,
+        adminName: data.adminName?.trim() || undefined,
+        adminPassword: data.adminPassword?.trim() || undefined,
       };
 
       if (!payload.company) {
         toast.error('Company is required');
+        return;
+      }
+
+      if (!editingBranch && !payload.email) {
+        toast.error('Branch Admin Email is required');
         return;
       }
 
@@ -456,6 +510,38 @@ const BranchList = () => {
             </div>
           </div>
 
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">
+              Geofence Settings
+            </h3>
+            <div className="grid grid-cols-3 gap-4">
+              <Input
+                label="Latitude"
+                type="number"
+                step="any"
+                placeholder="28.6139"
+                error={errors.latitude?.message}
+                {...register('latitude', { valueAsNumber: true })}
+              />
+              <Input
+                label="Longitude"
+                type="number"
+                step="any"
+                placeholder="77.2090"
+                error={errors.longitude?.message}
+                {...register('longitude', { valueAsNumber: true })}
+              />
+              <Input
+                label="Radius (m)"
+                type="number"
+                placeholder="10"
+                error={errors.radius?.message}
+                {...register('radius', { valueAsNumber: true })}
+              />
+            </div>
+            <p className="text-xs text-slate-500 mt-2">Set the exact coordinates where employees can mark their attendance.</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-1.5">
               Address
@@ -467,6 +553,13 @@ const BranchList = () => {
               {...register('address')}
             />
           </div>
+          <LocationPicker
+            value={location}
+            onChange={handleLocationChange}
+            onAddressChange={handleAddressChange}
+            label="Live Location"
+            helperText="Live location will auto-fill the address."
+          />
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

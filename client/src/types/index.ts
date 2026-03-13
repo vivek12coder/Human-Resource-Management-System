@@ -87,6 +87,11 @@ export interface Branch {
   phone?: string;
   email?: string;
   isHeadOffice?: boolean;
+  location?: {
+    latitude: number;
+    longitude: number;
+    radius: number;
+  };
   isActive: boolean;
 }
 
@@ -196,13 +201,46 @@ export interface User {
   _id: string;
   name: string;
   email: string;
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'JUNIOR_ADMIN' | 'EMPLOYEE';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'BRANCH_ADMIN' | 'JUNIOR_ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
   company?: Company;
   branch?: Branch;
   employee?: Employee;
   permissions?: string[];
   isActive: boolean;
   isDeleted?: boolean;
+  createdAt: string;
+}
+
+// Shift types
+export interface Shift {
+  _id: string;
+  company: string | Company;
+  branch?: string | Branch;
+  name: string;
+  code: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  gracePeriodMinutes: number;
+  breakDurationMinutes: number;
+  weeklyOff: string[];
+  isNightShift: boolean;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// Roster types
+export interface Roster {
+  _id: string;
+  company: string | Company;
+  branch?: string | Branch;
+  employee: Employee;
+  shift?: Shift;
+  rosterDate: string;
+  status: 'Scheduled' | 'Week-Off' | 'On-Leave' | 'Holiday';
+  notes?: string;
+  isPublished: boolean;
   createdAt: string;
 }
 
@@ -217,4 +255,3 @@ export interface DashboardStats {
   pendingLeaves: number;
   totalPayroll?: number;
 }
-

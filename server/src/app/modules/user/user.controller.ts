@@ -5,6 +5,7 @@ import sendResponse from '../../utils/sendResponse';
 import { HttpStatusCode } from 'axios';
 import httpStatus from 'http-status';
 import Employee from '../employee/employee.model';
+import Branch from '../branch/branch.model';
 
 export class UserController {
   static createUser = catchAsync(async (req, res) => {
@@ -46,19 +47,11 @@ export class UserController {
     } else if (loggedInUser.role === 'ADMIN') {
       payload.company = loggedInUser.company;
 
-      if (payload.role !== 'JUNIOR_ADMIN') {
+      if (payload.role !== 'JUNIOR_ADMIN' && payload.role !== 'HR') {
         throw new AppError(
           HttpStatusCode.Forbidden,
           'Permission Denied',
-          'ADMIN can only create JUNIOR_ADMIN users'
-        );
-      }
-
-      if (!payload.branch) {
-        throw new AppError(
-          HttpStatusCode.BadRequest,
-          'Request Failed',
-          'Branch is required for JUNIOR_ADMIN'
+          'ADMIN can only create JUNIOR_ADMIN or HR users'
         );
       }
 
@@ -66,8 +59,27 @@ export class UserController {
         throw new AppError(
           HttpStatusCode.BadRequest,
           'Request Failed',
-          'Permissions required for JUNIOR_ADMIN'
+          'Permissions required for JUNIOR_ADMIN/HR'
         );
+      }
+
+      if (payload.branch) {
+        const branch = await Branch.findById(payload.branch).lean();
+        if (!branch || branch.isDeleted) {
+          throw new AppError(
+            HttpStatusCode.NotFound,
+            'Request Failed',
+            'Branch not found'
+          );
+        }
+
+        if (branch.company?.toString() !== loggedInUser.company?.toString()) {
+          throw new AppError(
+            HttpStatusCode.Forbidden,
+            'Permission Denied',
+            'You can only assign branches from your company'
+          );
+        }
       }
     } else if (loggedInUser.role === 'JUNIOR_ADMIN') {
       payload.company = loggedInUser.company;
@@ -165,11 +177,15 @@ export class UserController {
       );
     }
 
-    if (loggedInUser.role === 'ADMIN' && user.role !== 'JUNIOR_ADMIN') {
+    if (
+      loggedInUser.role === 'ADMIN' &&
+      user.role !== 'JUNIOR_ADMIN' &&
+      user.role !== 'HR'
+    ) {
       throw new AppError(
         HttpStatusCode.Forbidden,
         'Forbidden',
-        'ADMIN can only access JUNIOR_ADMIN profiles'
+        'ADMIN can only access JUNIOR_ADMIN/HR profiles'
       );
     }
     if (loggedInUser.role === 'JUNIOR_ADMIN') {
@@ -208,9 +224,9 @@ export class UserController {
     }
 
     if (loggedInUser.role === 'ADMIN') {
-      filter.role = 'JUNIOR_ADMIN';
-    } else if (loggedInUser.role === 'JUNIOR_ADMIN') {
-      filter.role = 'EMPLOYEE';
+      filter.role = { $in: ['JUNIOR_ADMIN', 'HR'] };
+    } else if (loggedInUser.role === 'JUNIOR_ADMIN' || loggedInUser.role === 'BRANCH_ADMIN') {
+      filter.role = { $in: ['JUNIOR_ADMIN', 'HR', 'EMPLOYEE'] };
       filter.branch = loggedInUser.branch;
     } else if (role) {
       filter.role = role;
@@ -277,11 +293,11 @@ export class UserController {
     }
 
     if (loggedInUser.role === 'ADMIN') {
-      if (existingUser.role !== 'JUNIOR_ADMIN') {
+      if (existingUser.role !== 'JUNIOR_ADMIN' && existingUser.role !== 'HR') {
         throw new AppError(
           HttpStatusCode.Forbidden,
           'Forbidden',
-          'ADMIN can only update JUNIOR_ADMIN profiles'
+          'ADMIN can only update JUNIOR_ADMIN/HR profiles'
         );
       }
       payload.company = loggedInUser.company;
@@ -343,11 +359,15 @@ export class UserController {
       );
     }
 
-    if (loggedInUser.role === 'ADMIN' && existingUser.role !== 'JUNIOR_ADMIN') {
+    if (
+      loggedInUser.role === 'ADMIN' &&
+      existingUser.role !== 'JUNIOR_ADMIN' &&
+      existingUser.role !== 'HR'
+    ) {
       throw new AppError(
         HttpStatusCode.Forbidden,
         'Forbidden',
-        'ADMIN can only delete JUNIOR_ADMIN profiles'
+        'ADMIN can only delete JUNIOR_ADMIN/HR profiles'
       );
     }
     if (loggedInUser.role === 'JUNIOR_ADMIN') {
@@ -391,9 +411,9 @@ export class UserController {
     }
 
     if (loggedInUser.role === 'ADMIN') {
-      filter.role = 'JUNIOR_ADMIN';
-    } else if (loggedInUser.role === 'JUNIOR_ADMIN') {
-      filter.role = 'EMPLOYEE';
+      filter.role = { $in: ['JUNIOR_ADMIN', 'HR'] };
+    } else if (loggedInUser.role === 'JUNIOR_ADMIN' || loggedInUser.role === 'BRANCH_ADMIN') {
+      filter.role = { $in: ['JUNIOR_ADMIN', 'HR', 'EMPLOYEE'] };
       filter.branch = loggedInUser.branch;
     } else if (role) {
       filter.role = role;

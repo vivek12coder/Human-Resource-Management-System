@@ -113,8 +113,23 @@ export const checkPermission = (requiredPermission: string) => {
       });
     }
 
-    // SUPER_ADMIN and ADMIN have all permissions
-    if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") {
+    // SUPER_ADMIN, ADMIN, BRANCH_ADMIN, and HR have all permissions
+    if (
+      user.role === "SUPER_ADMIN" ||
+      user.role === "ADMIN" ||
+      user.role === "BRANCH_ADMIN" ||
+      user.role === "HR"
+    ) {
+      return next();
+    }
+
+    // Backward compatibility:
+    // Treat JUNIOR_ADMIN as branch-level admin for employee list view.
+    // This prevents UI breakage for old accounts where EMPLOYEE_VIEW was not assigned.
+    if (
+      user.role === "JUNIOR_ADMIN" &&
+      requiredPermission === "EMPLOYEE_VIEW"
+    ) {
       return next();
     }
 

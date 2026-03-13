@@ -282,7 +282,7 @@ export class DashboardController {
       ]),
     ]);
 
-    const [recentEmployees, pendingLeaveRequests] = await Promise.all([
+    const [recentEmployees, pendingLeaveRequests, recentDeviceLogins] = await Promise.all([
       Employee.find({ company: companyId, branch: branchId, isDeleted: false })
         .select("employeeId firstName lastName email joiningDate department")
         .populate("department", "name")
@@ -295,12 +295,120 @@ export class DashboardController {
         .sort({ createdAt: -1 })
         .limit(5)
         .lean(),
+      User.aggregate([
+        { $match: { branch: branchId, role: "EMPLOYEE", isDeleted: false, isActive: true } },
+        { $unwind: "$devices" },
+        { $sort: { "devices.lastLogin": -1 } },
+        { $limit: 10 },
+        {
+          $project: {
+            name: 1,
+            email: 1,
+            device: "$devices",
+          }
+        }
+      ]),
     ]);
 
     sendResponse(res, {
       statusCode: httpStatus.OK,
       success: true,
       message: "Branch Admin dashboard data fetched successfully",
+      data: {
+        stats: {
+          totalEmployees,
+          activeEmployees,
+          todayAttendance: {
+            present: todayPresent,
+            absent: todayAbsent,
+            onLeave: todayOnLeave,
+          },
+          pendingLeaves,
+          monthlyPayroll: {
+            totalAmount: monthlyPayroll[0]?.totalNetSalary || 0,
+            employeesCount: monthlyPayroll[0]?.count || 0,
+          },
+        },
+        recentEmployees,
+        pendingLeaveRequests,
+        recentDeviceLogins
+      },
+    });
+  });
+
+  static getHRDashboard = catchAsync(async (_req, res) => {
+    const loggedInUser = res.locals.user;
+    const companyId = loggedInUser.company;
+    const branchId = loggedInUser.branch;
+
+    if (!companyId) {
+      throw new AppError(
+        HttpStatusCode.BadRequest,
+        "Request Failed",
+        "Company not found for this HR user"
+      );
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+
+    // Build branch-aware filter (HR may or may not have a branch assigned)
+    const baseFilter: Record<string, unknown> = { company: companyId, isDeleted: false };
+    const attendanceFilter: Record<string, unknown> = { company: companyId, date: today };
+    const leaveFilter: Record<string, unknown> = { company: companyId, status: "Pending" };
+    const payrollMatch: Record<string, unknown> = { company: companyId, month: currentMonth, year: currentYear };
+
+    if (branchId) {
+      baseFilter.branch = branchId;
+      attendanceFilter.branch = branchId;
+      leaveFilter.branch = branchId;
+      payrollMatch.branch = branchId;
+    }
+
+    const [
+      totalEmployees,
+      activeEmployees,
+      todayPresent,
+      todayAbsent,
+      todayOnLeave,
+      pendingLeaves,
+      monthlyPayroll,
+    ] = await Promise.all([
+      Employee.countDocuments({ ...baseFilter }),
+      Employee.countDocuments({ ...baseFilter, isActive: true, employmentStatus: "Active" }),
+      Attendance.countDocuments({ ...attendanceFilter, status: { $in: ["Present", "Late"] } }),
+      Attendance.countDocuments({ ...attendanceFilter, status: "Absent" }),
+      Attendance.countDocuments({ ...attendanceFilter, status: "On-Leave" }),
+      Leave.countDocuments({ ...leaveFilter }),
+      Payroll.aggregate([
+        { $match: payrollMatch },
+        { $group: { _id: null, totalNetSalary: { $sum: "$netSalary" }, count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const employeeQuery = { ...baseFilter };
+    const [recentEmployees, pendingLeaveRequests] = await Promise.all([
+      Employee.find(employeeQuery)
+        .select("employeeId firstName lastName email joiningDate department")
+        .populate("department", "name")
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      Leave.find({ ...leaveFilter })
+        .select("leaveType startDate endDate totalDays reason")
+        .populate("employee", "firstName lastName employeeId")
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+    ]);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "HR dashboard data fetched successfully",
       data: {
         stats: {
           totalEmployees,
@@ -415,11 +523,11 @@ export class DashboardController {
         },
         todayAttendance: todayAttendance
           ? {
-              checkIn: todayAttendance.checkIn,
-              checkOut: todayAttendance.checkOut,
-              status: todayAttendance.status,
-              totalHours: todayAttendance.totalHours,
-            }
+            checkIn: todayAttendance.checkIn,
+            checkOut: todayAttendance.checkOut,
+            status: todayAttendance.status,
+            totalHours: todayAttendance.totalHours,
+          }
           : null,
         monthlyAttendanceSummary: {
           present: presentDays,

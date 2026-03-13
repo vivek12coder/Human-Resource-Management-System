@@ -65,8 +65,8 @@ export class AuthService {
   /* =============================
           LOGIN USER
      ============================= */
-  static async loginUser(payload: IUserLogin) {
-    const { email, password } = payload;
+  static async loginUser(payload: IUserLogin, ipAddress?: string) {
+    const { email, password, device } = payload;
 
     const user = await UserModel.findOne({
       email: email.toLowerCase(),
@@ -84,6 +84,37 @@ export class AuthService {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       throw new AppError(HttpStatusCode.Unauthorized, "Login Failed", "Invalid email or password!");
+    }
+
+    // Process Device Fingerprint
+    if (device && device.signature) {
+      const existingDevice = user.devices?.find(
+        (d) => d.deviceId === device.deviceId || d.signature === device.signature
+      );
+
+      if (existingDevice) {
+        // Update last login details for this known device
+        existingDevice.lastLogin = new Date();
+        if (ipAddress) existingDevice.ipAddress = ipAddress;
+        if (device.deviceName) existingDevice.deviceName = device.deviceName;
+        if (device.details) existingDevice.details = device.details;
+      } else {
+        // Log new device alert (In production, could send an email/notification here)
+        console.log(`New Device Alert for User ID: ${user._id} - ${device.deviceName}`);
+        
+        // Add new device to user profile
+        user.devices = user.devices || [];
+        user.devices.push({
+          deviceId: device.deviceId,
+          deviceName: device.deviceName,
+          signature: device.signature,
+          lastLogin: new Date(),
+          ipAddress,
+          details: device.details,
+        });
+      }
+      
+      await user.save({ validateModifiedOnly: true });
     }
 
     const { accessToken, refreshToken } = generateTokens(user._id.toString(), user.role);
@@ -182,17 +213,25 @@ export class AuthService {
   }
 
   /* =============================
-          SWITCH USER (SUPER ADMIN)
+          SWITCH USER (SUPER/COMPANY ADMIN)
      ============================= */
-  static async switchUser(superAdminId: string, targetUserId: string) {
-    const superAdmin = await UserModel.findById(superAdminId).select("-password").lean();
+  static async switchUser(actorUserId: string, targetUserId: string) {
+    const actor = await UserModel.findById(actorUserId).select("-password").lean();
 
-    if (!superAdmin || superAdmin.isDeleted || !superAdmin.isActive) {
-      throw new AppError(HttpStatusCode.Unauthorized, "Switch Failed", "Unauthorized super admin session");
+    if (!actor || actor.isDeleted || !actor.isActive) {
+      throw new AppError(HttpStatusCode.Unauthorized, "Switch Failed", "Unauthorized session");
     }
 
-    if (superAdmin.role !== "SUPER_ADMIN") {
-      throw new AppError(HttpStatusCode.Forbidden, "Switch Failed", "Only super admin can switch accounts");
+    if (actor.role !== "SUPER_ADMIN" && actor.role !== "ADMIN") {
+      throw new AppError(
+        HttpStatusCode.Forbidden,
+        "Switch Failed",
+        "Only super admin or company admin can switch accounts"
+      );
+    }
+
+    if (targetUserId.toString() === actor._id.toString()) {
+      throw new AppError(HttpStatusCode.BadRequest, "Switch Failed", "Cannot switch into your own account");
     }
 
     const targetUser = await UserModel.findById(targetUserId)
@@ -211,6 +250,20 @@ export class AuthService {
 
     if (targetUser.role === "SUPER_ADMIN") {
       throw new AppError(HttpStatusCode.BadRequest, "Switch Failed", "Cannot switch into another SUPER_ADMIN");
+    }
+
+    if (actor.role === "ADMIN") {
+      if (!actor.company) {
+        throw new AppError(HttpStatusCode.Forbidden, "Switch Failed", "Company admin must belong to a company");
+      }
+
+      if (targetUser.company?._id?.toString() !== actor.company?.toString()) {
+        throw new AppError(
+          HttpStatusCode.Forbidden,
+          "Switch Failed",
+          "Company admin can only switch users within their own company"
+        );
+      }
     }
 
     const { accessToken, refreshToken } = generateTokens(targetUser._id.toString(), targetUser.role);
